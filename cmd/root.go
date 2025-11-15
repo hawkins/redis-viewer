@@ -70,6 +70,28 @@ func init() {
 
 	rootCmd.PersistentFlags().
 		StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.redis-viewer.yaml)")
+
+	// Redis connection flags
+	rootCmd.PersistentFlags().
+		StringSliceP("addrs", "a", nil, "Redis server addresses (can be specified multiple times)")
+	rootCmd.PersistentFlags().
+		IntP("db", "d", 0, "Redis database number")
+	rootCmd.PersistentFlags().
+		StringP("username", "u", "", "Redis username")
+	rootCmd.PersistentFlags().
+		StringP("password", "p", "", "Redis password")
+	rootCmd.PersistentFlags().
+		StringP("master-name", "m", "", "Redis Sentinel master name")
+	rootCmd.PersistentFlags().
+		Int64P("limit", "l", constant.DefaultCount, "Scan count limit per page")
+
+	// Bind flags to viper
+	viper.BindPFlag("addrs", rootCmd.PersistentFlags().Lookup("addrs"))
+	viper.BindPFlag("db", rootCmd.PersistentFlags().Lookup("db"))
+	viper.BindPFlag("username", rootCmd.PersistentFlags().Lookup("username"))
+	viper.BindPFlag("password", rootCmd.PersistentFlags().Lookup("password"))
+	viper.BindPFlag("master_name", rootCmd.PersistentFlags().Lookup("master-name"))
+	viper.BindPFlag("limit", rootCmd.PersistentFlags().Lookup("limit"))
 }
 
 // initConfig reads in config file and ENV variables if set.
