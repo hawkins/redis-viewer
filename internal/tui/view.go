@@ -19,6 +19,9 @@ var (
 			Border(lipgloss.RoundedBorder(), false, true, false, false)
 	dividerStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"})
+	focusIndicator = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF5F87")).
+			Bold(true)
 
 	statusNugget   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF5")).Padding(0, 1)
 	statusBarStyle = lipgloss.NewStyle().
@@ -35,7 +38,13 @@ var (
 )
 
 func (m model) listView() string {
-	return listViewStyle.Render(m.list.View())
+	style := listViewStyle
+	if m.focused == listPane {
+		style = style.BorderForeground(lipgloss.Color("#FF5F87"))
+	} else {
+		style = style.BorderForeground(lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"})
+	}
+	return style.Render(m.list.View())
 }
 
 func (m model) viewportContent() string {
@@ -65,7 +74,15 @@ func (m model) viewportContent() string {
 }
 
 func (m model) detailView() string {
-	return m.viewport.View()
+	content := m.viewport.View()
+
+	// Add a focus indicator at the top of the viewport when focused
+	if m.focused == viewportPane {
+		indicator := focusIndicator.Render("▸ ")
+		content = indicator + content
+	}
+
+	return content
 }
 
 func (m model) helpView() string {

@@ -30,6 +30,13 @@ const (
 	helpState
 )
 
+type focusedPane int
+
+const (
+	listPane focusedPane = iota
+	viewportPane
+)
+
 //nolint:govet
 type model struct {
 	width, height int
@@ -57,6 +64,7 @@ type model struct {
 
 	keyMap
 	state
+	focused focusedPane
 }
 
 func New(config conf.Config) (*model, error) {
@@ -116,7 +124,8 @@ func New(config conf.Config) (*model, error) {
 
 		limit: config.Limit,
 
-		keyMap: defaultKeyMap(),
-		state:  defaultState,
+		keyMap:  defaultKeyMap(),
+		state:   defaultState,
+		focused: listPane,
 	}, nil
 }

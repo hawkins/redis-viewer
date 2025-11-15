@@ -157,11 +157,25 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 				m.ready = false
 				cmds = append(cmds, m.scanCmd(), m.countCmd())
 			}
-		case tea.KeyUp, tea.KeyDown, tea.KeyLeft, tea.KeyRight:
-			m.list, cmd = m.list.Update(msg)
-			cmds = append(cmds, cmd)
-			m.viewport.GotoTop()
-			m.viewport.SetContent(m.viewportContent())
+		case tea.KeyLeft:
+			// Switch focus to list pane
+			m.focused = listPane
+		case tea.KeyRight:
+			// Switch focus to viewport pane
+			m.focused = viewportPane
+		case tea.KeyUp, tea.KeyDown:
+			// Handle up/down based on which pane is focused
+			if m.focused == listPane {
+				// Navigate the list
+				m.list, cmd = m.list.Update(msg)
+				cmds = append(cmds, cmd)
+				m.viewport.GotoTop()
+				m.viewport.SetContent(m.viewportContent())
+			} else {
+				// Scroll the viewport
+				m.viewport, cmd = m.viewport.Update(msg)
+				cmds = append(cmds, cmd)
+			}
 		}
 	default:
 		m.list, cmd = m.list.Update(msg)
