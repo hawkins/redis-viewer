@@ -12,6 +12,7 @@ type keyMap struct {
 	search      key.Binding
 	fuzzySearch key.Binding
 	delete      key.Binding
+	purge       key.Binding
 	switchDB    key.Binding
 	toggleWrap  key.Binding
 	help        key.Binding
@@ -31,6 +32,9 @@ func defaultKeyMap() keyMap {
 		),
 		delete: key.NewBinding(
 			key.WithKeys("x"),
+		),
+		purge: key.NewBinding(
+			key.WithKeys("P"),
 		),
 		switchDB: key.NewBinding(
 			key.WithKeys("d"),

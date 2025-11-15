@@ -33,6 +33,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.ready = false
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 		}
+	case purgeMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Failed to purge database: %v", msg.err)
+		} else {
+			m.statusMessage = fmt.Sprintf("Database %d purged successfully", msg.db)
+			m.ready = false
+			cmds = append(cmds, m.scanCmd(), m.countCmd())
+		}
 	case switchDBMsg:
 		if msg.err != nil {
 			m.statusMessage = fmt.Sprintf("Failed to switch database: %v", msg.err)
@@ -89,6 +97,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.handleSwitchDBState(msg))
 	case confirmDeleteState:
 		cmds = append(cmds, m.handleConfirmDeleteState(msg))
+	case confirmPurgeState:
+		cmds = append(cmds, m.handleConfirmPurgeState(msg))
 	case helpState:
 		cmds = append(cmds, m.handleHelpState(msg))
 	}
@@ -137,6 +147,9 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 						m.state = confirmDeleteState
 					}
 				}
+			case key.Matches(msg, m.keyMap.purge):
+				// Enter purge confirmation state
+				m.state = confirmPurgeState
 			case key.Matches(msg, m.keyMap.toggleWrap):
 				m.wordWrap = !m.wordWrap
 				if m.wordWrap {
@@ -289,6 +302,25 @@ func (m *model) handleConfirmDeleteState(msg tea.Msg) tea.Cmd {
 			// Cancel deletion
 			m.state = defaultState
 			m.keyToDelete = ""
+		}
+	}
+
+	return tea.Batch(cmds...)
+}
+
+func (m *model) handleConfirmPurgeState(msg tea.Msg) tea.Cmd {
+	var cmds []tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "y", "Y":
+			// Confirm purge
+			m.state = defaultState
+			cmds = append(cmds, m.purgeCmd())
+		case "n", "N", "esc":
+			// Cancel purge
+			m.state = defaultState
 		}
 	}
 

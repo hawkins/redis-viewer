@@ -173,6 +173,18 @@ func (m model) deleteCmd(key string) tea.Cmd {
 	}
 }
 
+type purgeMsg struct {
+	db  int
+	err error
+}
+
+func (m model) purgeCmd() tea.Cmd {
+	return func() tea.Msg {
+		err := rv.FlushDB(m.rdb)
+		return purgeMsg{db: m.db, err: err}
+	}
+}
+
 type switchDBMsg struct {
 	db     int
 	newRdb interface{}

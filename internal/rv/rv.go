@@ -114,3 +114,18 @@ func DeleteKey(rdb redis.UniversalClient, key string) error {
 	ctx := context.TODO()
 	return rdb.Del(ctx, key).Err()
 }
+
+func FlushDB(rdb redis.UniversalClient) error {
+	ctx := context.TODO()
+
+	switch rdb := rdb.(type) {
+	case *redis.ClusterClient:
+		// For cluster mode, flush each master node
+		return rdb.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
+			return client.FlushDB(ctx).Err()
+		})
+	default:
+		// For standalone and sentinel modes
+		return rdb.FlushDB(ctx).Err()
+	}
+}

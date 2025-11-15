@@ -108,6 +108,7 @@ func (m model) helpView() string {
 		"  d         Switch database",
 		"  w         Toggle word wrap",
 		"  x         Delete selected key",
+		"  P         Purge database (delete all keys)",
 		"  ?         Toggle this help",
 		"  Ctrl+C    Quit application",
 		"",
@@ -182,6 +183,15 @@ func (m model) statusView() string {
 			keyName = keyName[:maxKeyLen] + "..."
 		}
 		statusDesc = fmt.Sprintf("Delete key '%s'? (y/n)", keyName)
+	case confirmPurgeState:
+		status = "DANGER"
+		statusKey = statusStyle.Copy().Background(lipgloss.Color("#FF0000")).Render(status)
+		encoding = encodingStyle.Render("UTF-8")
+		if m.wordWrap {
+			wrapIndicator = statusNugget.Copy().Background(lipgloss.Color("#50FA7B")).Render("WRAP")
+		}
+		datetime = datetimeStyle.Render(m.now)
+		statusDesc = fmt.Sprintf("PURGE ALL KEYS in database %d? (y/n)", m.db)
 	default:
 		status = "Ready"
 		statusDesc = m.statusMessage

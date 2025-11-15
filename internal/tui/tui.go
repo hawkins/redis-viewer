@@ -27,6 +27,7 @@ const (
 	fuzzySearchState
 	switchDBState
 	confirmDeleteState
+	confirmPurgeState
 	helpState
 )
 
