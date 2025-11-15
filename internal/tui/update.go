@@ -24,6 +24,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// global msg handling
 	switch msg := msg.(type) {
+	case deleteMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Failed to delete key: %v", msg.err)
+		} else {
+			m.statusMessage = fmt.Sprintf("Key '%s' deleted successfully", msg.key)
+			m.ready = false
+			cmds = append(cmds, m.scanCmd(), m.countCmd())
+		}
 	case errMsg:
 		m.statusMessage = msg.err.Error()
 		// TODO: log error
@@ -59,6 +67,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.handleDefaultState(msg))
 	case searchState:
 		cmds = append(cmds, m.handleSearchState(msg))
+	case confirmDeleteState:
+		cmds = append(cmds, m.handleConfirmDeleteState(msg))
 	}
 
 	m.spinner, cmd = m.spinner.Update(msg)
@@ -88,6 +98,14 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 			case key.Matches(msg, m.keyMap.reload):
 				m.ready = false
 				cmds = append(cmds, m.scanCmd(), m.countCmd())
+			case key.Matches(msg, m.keyMap.delete):
+				// Get the selected item
+				if selectedItem := m.list.SelectedItem(); selectedItem != nil {
+					if i, ok := selectedItem.(item); ok {
+						m.keyToDelete = i.key
+						m.state = confirmDeleteState
+					}
+				}
 			}
 		case tea.KeyCtrlC:
 			cmd = tea.Quit
@@ -122,6 +140,8 @@ func (m *model) handleSearchState(msg tea.Msg) tea.Cmd {
 			m.textinput.Blur()
 			m.textinput.Reset()
 			m.state = defaultState
+			// Don't update textinput after state change
+			return tea.Batch(cmds...)
 		case tea.KeyEnter:
 			m.searchValue = m.textinput.Value()
 
@@ -131,11 +151,33 @@ func (m *model) handleSearchState(msg tea.Msg) tea.Cmd {
 
 			m.ready = false
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
+			// Don't update textinput after state change
+			return tea.Batch(cmds...)
 		}
 	}
 
 	m.textinput, cmd = m.textinput.Update(msg)
 	cmds = append(cmds, cmd)
+
+	return tea.Batch(cmds...)
+}
+
+func (m *model) handleConfirmDeleteState(msg tea.Msg) tea.Cmd {
+	var cmds []tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "y", "Y":
+			// Confirm deletion
+			m.state = defaultState
+			cmds = append(cmds, m.deleteCmd(m.keyToDelete))
+		case "n", "N", "esc":
+			// Cancel deletion
+			m.state = defaultState
+			m.keyToDelete = ""
+		}
+	}
 
 	return tea.Batch(cmds...)
 }

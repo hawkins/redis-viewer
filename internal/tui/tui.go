@@ -24,6 +24,7 @@ type state int
 const (
 	defaultState state = iota
 	searchState
+	confirmDeleteState
 )
 
 //nolint:govet
@@ -40,6 +41,7 @@ type model struct {
 	statusMessage string
 	ready         bool
 	now           string
+	keyToDelete   string
 
 	offset int64
 	limit  int64 // scan size

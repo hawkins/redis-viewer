@@ -107,6 +107,18 @@ func (m model) tickCmd() tea.Cmd {
 	})
 }
 
+type deleteMsg struct {
+	key string
+	err error
+}
+
+func (m model) deleteCmd(key string) tea.Cmd {
+	return func() tea.Msg {
+		err := rv.DeleteKey(m.rdb, key)
+		return deleteMsg{key: key, err: err}
+	}
+}
+
 func formatDuration(d time.Duration) string {
 	if d <= 0 {
 		return "" // No expiration or already expired

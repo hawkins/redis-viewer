@@ -10,6 +10,7 @@ import "github.com/charmbracelet/bubbles/key"
 type keyMap struct {
 	reload key.Binding
 	search key.Binding
+	delete key.Binding
 }
 
 // defaultKeyMap returns a set of default keybindings.
@@ -20,6 +21,9 @@ func defaultKeyMap() keyMap {
 		),
 		search: key.NewBinding(
 			key.WithKeys("s"),
+		),
+		delete: key.NewBinding(
+			key.WithKeys("d"),
 		),
 	}
 }

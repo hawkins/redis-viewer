@@ -71,10 +71,37 @@ func (m model) detailView() string {
 func (m model) statusView() string {
 	var status string
 	var statusDesc string
+
+	// Pre-render fixed elements to get their widths
+	var statusKey, encoding, datetime string
+
 	switch m.state {
 	case searchState:
 		status = "Search"
 		statusDesc = m.textinput.View()
+	case confirmDeleteState:
+		status = "Confirm"
+		statusKey = statusStyle.Render(status)
+		encoding = encodingStyle.Render("UTF-8")
+		datetime = datetimeStyle.Render(m.now)
+
+		// Calculate available width for the confirmation message
+		fixedWidth := lipgloss.Width(statusKey) + lipgloss.Width(encoding) + lipgloss.Width(datetime)
+		availableWidth := m.width - fixedWidth
+
+		// Account for the message template: "Delete key ''? (y/n)" = ~23 chars
+		messageOverhead := len("Delete key ''? (y/n)")
+		maxKeyLen := availableWidth - messageOverhead - 5 // Extra padding for safety
+
+		if maxKeyLen < 10 {
+			maxKeyLen = 10 // Minimum readable length
+		}
+
+		keyName := m.keyToDelete
+		if len(keyName) > maxKeyLen {
+			keyName = keyName[:maxKeyLen] + "..."
+		}
+		statusDesc = fmt.Sprintf("Delete key '%s'? (y/n)", keyName)
 	default:
 		status = "Ready"
 		statusDesc = m.statusMessage
@@ -84,12 +111,25 @@ func (m model) statusView() string {
 		}
 	}
 
-	statusKey := statusStyle.Render(status)
-	encoding := encodingStyle.Render("UTF-8")
-	datetime := datetimeStyle.Render(m.now)
+	// Render fixed elements if not already done
+	if statusKey == "" {
+		statusKey = statusStyle.Render(status)
+	}
+	if encoding == "" {
+		encoding = encodingStyle.Render("UTF-8")
+	}
+	if datetime == "" {
+		datetime = datetimeStyle.Render(m.now)
+	}
+
+	// Calculate available width for status description
+	availableWidth := m.width - lipgloss.Width(statusKey) - lipgloss.Width(encoding) - lipgloss.Width(datetime)
+	if availableWidth < 0 {
+		availableWidth = 0
+	}
 
 	statusVal := statusText.Copy().
-		Width(m.width - lipgloss.Width(statusKey) - lipgloss.Width(encoding) - lipgloss.Width(datetime)).
+		Width(availableWidth).
 		Render(statusDesc)
 
 	bar := lipgloss.JoinHorizontal(lipgloss.Top, statusKey, statusVal, encoding, datetime)

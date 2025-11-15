@@ -109,3 +109,8 @@ func GetKeys(
 
 	return res
 }
+
+func DeleteKey(rdb redis.UniversalClient, key string) error {
+	ctx := context.TODO()
+	return rdb.Del(ctx, key).Err()
+}
