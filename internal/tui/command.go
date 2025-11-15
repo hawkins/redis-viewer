@@ -67,8 +67,14 @@ func (m model) scanCmd() tea.Cmd {
 					item{keyType: kt, key: keyMessage.Key, val: err.Error(), err: true, expiration: expirationStr},
 				)
 			} else {
-				valBts, _ := util.JsonMarshalIndent(val)
-				items = append(items, item{keyType: kt, key: keyMessage.Key, val: string(valBts), expiration: expirationStr})
+				var itemValue string
+				if kt == "string" {
+					itemValue = cast.ToString(val)
+				} else {
+					valBts, _ := util.JsonMarshalIndent(val)
+					itemValue = string(valBts)
+				}
+				items = append(items, item{keyType: kt, key: keyMessage.Key, val: itemValue, expiration: expirationStr})
 			}
 		}
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
+	"github.com/saltfishpr/redis-viewer/internal/util"
 )
 
 var (
@@ -43,7 +44,8 @@ func (m model) viewportContent(width int) string {
 	if it := m.list.SelectedItem(); it != nil {
 		keyType := fmt.Sprintf("KeyType: %s\n", it.(item).keyType)
 		key := fmt.Sprintf("Key: \n%s\n", it.(item).key)
-		value := fmt.Sprintf("Value: \n%s\n", it.(item).val)
+		formattedValue := util.TryPrettyJSON(it.(item).val)
+		value := fmt.Sprintf("Value: \n%s\n", formattedValue)
 		expiration := it.(item).expiration
 
 		builder.WriteString(keyType)
