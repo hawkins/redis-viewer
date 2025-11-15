@@ -43,7 +43,8 @@ func (m model) viewportContent(width int) string {
 	divider := dividerStyle.Render(strings.Repeat("-", width)) + "\n"
 	if it := m.list.SelectedItem(); it != nil {
 		keyType := fmt.Sprintf("KeyType: %s\n", it.(item).keyType)
-		key := fmt.Sprintf("Key: \n%s\n", it.(item).key)
+		wrappedKey := wordwrap.String(it.(item).key, width)
+		key := fmt.Sprintf("Key: \n%s\n", wrappedKey)
 		formattedValue := util.TryPrettyJSON(it.(item).val)
 		value := fmt.Sprintf("Value: \n%s\n", formattedValue)
 		expiration := it.(item).expiration
