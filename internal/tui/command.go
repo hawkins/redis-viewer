@@ -7,6 +7,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/saltfishpr/redis-viewer/internal/rv"
@@ -40,6 +41,11 @@ func (m model) scanCmd() tea.Cmd {
 				return errMsg{err: keyMessage.Err}
 			}
 			kt := m.rdb.Type(ctx, keyMessage.Key).Val()
+			ttl, ttlErr := m.rdb.TTL(ctx, keyMessage.Key).Result()
+			var expirationStr string
+			if ttlErr == nil && ttl > 0 {
+				expirationStr = formatDuration(ttl)
+			}
 			switch kt {
 			case "string":
 				val, err = m.rdb.Get(ctx, keyMessage.Key).Result()
@@ -58,11 +64,11 @@ func (m model) scanCmd() tea.Cmd {
 			if err != nil {
 				items = append(
 					items,
-					item{keyType: kt, key: keyMessage.Key, val: err.Error(), err: true},
+					item{keyType: kt, key: keyMessage.Key, val: err.Error(), err: true, expiration: expirationStr},
 				)
 			} else {
 				valBts, _ := util.JsonMarshalIndent(val)
-				items = append(items, item{keyType: kt, key: keyMessage.Key, val: string(valBts)})
+				items = append(items, item{keyType: kt, key: keyMessage.Key, val: string(valBts), expiration: expirationStr})
 			}
 		}
 
@@ -93,4 +99,33 @@ func (m model) tickCmd() tea.Cmd {
 	return tea.Tick(time.Second, func(_ time.Time) tea.Msg {
 		return tickMsg{t: time.Now().Format("2006-01-02 15:04:05")}
 	})
+}
+
+func formatDuration(d time.Duration) string {
+	if d <= 0 {
+		return "" // No expiration or already expired
+	}
+
+	days := d / (24 * time.Hour)
+	remaining := d % (24 * time.Hour)
+	hours := remaining / time.Hour
+	remaining %= time.Hour
+	minutes := remaining / time.Minute
+	seconds := remaining % time.Minute / time.Second
+
+	var parts []string
+	if days > 0 {
+		parts = append(parts, fmt.Sprintf("%dd", days))
+	}
+	if hours > 0 || len(parts) > 0 {
+		parts = append(parts, fmt.Sprintf("%02dh", hours))
+	}
+	if minutes > 0 || len(parts) > 0 {
+		parts = append(parts, fmt.Sprintf("%02dm", minutes))
+	}
+	if seconds > 0 || len(parts) == 0 {
+		parts = append(parts, fmt.Sprintf("%02ds", seconds))
+	}
+
+	return strings.Join(parts, " ")
 }

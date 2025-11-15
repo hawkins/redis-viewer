@@ -44,7 +44,12 @@ func (m model) viewportContent(width int) string {
 		keyType := fmt.Sprintf("KeyType: %s\n", it.(item).keyType)
 		key := fmt.Sprintf("Key: \n%s\n", it.(item).key)
 		value := fmt.Sprintf("Value: \n%s\n", it.(item).val)
+		expiration := it.(item).expiration
+
 		builder.WriteString(keyType)
+		if expiration != "" {
+			builder.WriteString(fmt.Sprintf("TTL: %s\n", expiration))
+		}
 		builder.WriteString(divider)
 		builder.WriteString(key)
 		builder.WriteString(divider)

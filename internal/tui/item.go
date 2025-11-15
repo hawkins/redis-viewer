@@ -11,8 +11,9 @@ import (
 type item struct {
 	keyType string
 
-	key string
-	val string
+	key        string
+	val        string
+	expiration string // Store formatted expiration string
 
 	err bool
 }
