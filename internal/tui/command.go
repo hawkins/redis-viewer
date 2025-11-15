@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/sahilm/fuzzy"
 	"github.com/saltfishpr/redis-viewer/internal/rv"
 	"github.com/saltfishpr/redis-viewer/internal/util"
 
@@ -37,10 +38,22 @@ func (m model) scanCmd() tea.Cmd {
 		)
 
 		keyMessages := rv.GetKeys(m.rdb, cast.ToUint64(m.offset*m.limit), m.searchValue, m.limit)
+
+		// Collect all keys for potential fuzzy filtering
+		var allKeys []string
+		keyDataMap := make(map[string]struct {
+			keyType    string
+			val        string
+			err        bool
+			expiration string
+		})
+
 		for keyMessage := range keyMessages {
 			if keyMessage.Err != nil {
 				return errMsg{err: keyMessage.Err}
 			}
+
+			allKeys = append(allKeys, keyMessage.Key)
 			kt := m.rdb.Type(ctx, keyMessage.Key).Val()
 			ttl, ttlErr := m.rdb.TTL(ctx, keyMessage.Key).Result()
 			var expirationStr string
@@ -62,21 +75,50 @@ func (m model) scanCmd() tea.Cmd {
 				val = ""
 				err = fmt.Errorf("unsupported type: %s", kt)
 			}
+
+			var itemValue string
+			var hasErr bool
 			if err != nil {
-				items = append(
-					items,
-					item{keyType: kt, key: keyMessage.Key, val: err.Error(), err: true, expiration: expirationStr},
-				)
+				itemValue = err.Error()
+				hasErr = true
 			} else {
-				var itemValue string
 				if kt == "string" {
 					itemValue = cast.ToString(val)
 				} else {
 					valBts, _ := util.JsonMarshalIndent(val)
 					itemValue = string(valBts)
 				}
-				items = append(items, item{keyType: kt, key: keyMessage.Key, val: itemValue, expiration: expirationStr})
 			}
+
+			keyDataMap[keyMessage.Key] = struct {
+				keyType    string
+				val        string
+				err        bool
+				expiration string
+			}{keyType: kt, val: itemValue, err: hasErr, expiration: expirationStr}
+		}
+
+		// Apply fuzzy filtering if fuzzy filter is set
+		var filteredKeys []string
+		if m.fuzzyFilter != "" {
+			matches := fuzzy.Find(m.fuzzyFilter, allKeys)
+			for _, match := range matches {
+				filteredKeys = append(filteredKeys, match.Str)
+			}
+		} else {
+			filteredKeys = allKeys
+		}
+
+		// Build items list from filtered keys
+		for _, key := range filteredKeys {
+			data := keyDataMap[key]
+			items = append(items, item{
+				keyType:    data.keyType,
+				key:        key,
+				val:        data.val,
+				err:        data.err,
+				expiration: data.expiration,
+			})
 		}
 
 		return scanMsg{items: items}

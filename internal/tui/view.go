@@ -82,6 +82,7 @@ func (m model) helpView() string {
 		"  ←/→       Navigate panes",
 		"  r         Reload keys",
 		"  s         Search for keys",
+		"  /         Fuzzy filter keys",
 		"  d         Switch database",
 		"  x         Delete selected key",
 		"  ?         Toggle this help",
@@ -122,6 +123,9 @@ func (m model) statusView() string {
 	case searchState:
 		status = "Search"
 		statusDesc = m.textinput.View()
+	case fuzzySearchState:
+		status = "Fuzzy"
+		statusDesc = m.fuzzyInput.View()
 	case switchDBState:
 		status = "Switch DB"
 		statusDesc = m.dbInput.View()
@@ -154,6 +158,14 @@ func (m model) statusView() string {
 		if !m.ready {
 			status = m.spinner.View()
 			statusDesc = "Loading..."
+		}
+		// Show active fuzzy filter in status
+		if m.fuzzyFilter != "" {
+			if m.statusMessage != "" {
+				statusDesc = fmt.Sprintf("[Filter: %s] %s", m.fuzzyFilter, m.statusMessage)
+			} else {
+				statusDesc = fmt.Sprintf("[Filter: %s]", m.fuzzyFilter)
+			}
 		}
 	}
 

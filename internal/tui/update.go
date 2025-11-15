@@ -83,6 +83,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.handleDefaultState(msg))
 	case searchState:
 		cmds = append(cmds, m.handleSearchState(msg))
+	case fuzzySearchState:
+		cmds = append(cmds, m.handleFuzzySearchState(msg))
 	case switchDBState:
 		cmds = append(cmds, m.handleSwitchDBState(msg))
 	case confirmDeleteState:
@@ -114,6 +116,11 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 			case key.Matches(msg, m.keyMap.search):
 				m.state = searchState
 				m.textinput.Focus()
+				return textinput.Blink
+			case key.Matches(msg, m.keyMap.fuzzySearch):
+				m.state = fuzzySearchState
+				m.fuzzyInput.SetValue(m.fuzzyFilter)
+				m.fuzzyInput.Focus()
 				return textinput.Blink
 			case key.Matches(msg, m.keyMap.switchDB):
 				m.state = switchDBState
@@ -183,6 +190,44 @@ func (m *model) handleSearchState(msg tea.Msg) tea.Cmd {
 	}
 
 	m.textinput, cmd = m.textinput.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return tea.Batch(cmds...)
+}
+
+func (m *model) handleFuzzySearchState(msg tea.Msg) tea.Cmd {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyCtrlC:
+			cmd = tea.Quit
+			cmds = append(cmds, cmd)
+			return tea.Batch(cmds...)
+		case tea.KeyEscape:
+			m.fuzzyInput.Blur()
+			m.fuzzyInput.Reset()
+			m.state = defaultState
+			// Don't update fuzzyInput after state change
+			return tea.Batch(cmds...)
+		case tea.KeyEnter:
+			m.fuzzyFilter = m.fuzzyInput.Value()
+
+			m.fuzzyInput.Blur()
+			m.state = defaultState
+
+			m.ready = false
+			cmds = append(cmds, m.scanCmd(), m.countCmd())
+			// Don't update fuzzyInput after state change
+			return tea.Batch(cmds...)
+		}
+	}
+
+	m.fuzzyInput, cmd = m.fuzzyInput.Update(msg)
 	cmds = append(cmds, cmd)
 
 	return tea.Batch(cmds...)

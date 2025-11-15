@@ -24,6 +24,7 @@ type state int
 const (
 	defaultState state = iota
 	searchState
+	fuzzySearchState
 	switchDBState
 	confirmDeleteState
 	helpState
@@ -33,16 +34,18 @@ const (
 type model struct {
 	width, height int
 
-	list        list.Model
-	textinput   textinput.Model
-	dbInput     textinput.Model
-	viewport    viewport.Model
-	spinner     spinner.Model
+	list          list.Model
+	textinput     textinput.Model
+	fuzzyInput    textinput.Model
+	dbInput       textinput.Model
+	viewport      viewport.Model
+	spinner       spinner.Model
 
 	rdb           redis.UniversalClient
 	redisOpts     *redis.UniversalOptions
 	db            int
 	searchValue   string
+	fuzzyFilter   string
 	statusMessage string
 	ready         bool
 	now           string
@@ -78,6 +81,11 @@ func New(config conf.Config) (*model, error) {
 	t.Placeholder = "Search Key"
 	t.PlaceholderStyle = lipgloss.NewStyle()
 
+	f := textinput.New()
+	f.Prompt = "> "
+	f.Placeholder = "Fuzzy Filter"
+	f.PlaceholderStyle = lipgloss.NewStyle()
+
 	d := textinput.New()
 	d.Prompt = "> "
 	d.Placeholder = "Database Number"
@@ -95,10 +103,11 @@ func New(config conf.Config) (*model, error) {
 	s.Spinner = spinner.Dot
 
 	return &model{
-		list:      l,
-		textinput: t,
-		dbInput:   d,
-		spinner:   s,
+		list:       l,
+		textinput:  t,
+		fuzzyInput: f,
+		dbInput:    d,
+		spinner:    s,
 
 		rdb:       rdb,
 		redisOpts: opts,
