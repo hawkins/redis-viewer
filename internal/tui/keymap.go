@@ -8,10 +8,11 @@ import "github.com/charmbracelet/bubbles/key"
 
 // keyMap defines the keybindings for the app.
 type keyMap struct {
-	reload key.Binding
-	search key.Binding
-	delete key.Binding
-	help   key.Binding
+	reload   key.Binding
+	search   key.Binding
+	delete   key.Binding
+	switchDB key.Binding
+	help     key.Binding
 }
 
 // defaultKeyMap returns a set of default keybindings.
@@ -24,6 +25,9 @@ func defaultKeyMap() keyMap {
 			key.WithKeys("s"),
 		),
 		delete: key.NewBinding(
+			key.WithKeys("x"),
+		),
+		switchDB: key.NewBinding(
 			key.WithKeys("d"),
 		),
 		help: key.NewBinding(

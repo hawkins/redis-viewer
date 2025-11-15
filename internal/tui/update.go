@@ -6,6 +6,7 @@ package tui
 import (
 	"fmt"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/saltfishpr/redis-viewer/internal/constant"
 	"github.com/spf13/cast"
 
@@ -29,6 +30,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMessage = fmt.Sprintf("Failed to delete key: %v", msg.err)
 		} else {
 			m.statusMessage = fmt.Sprintf("Key '%s' deleted successfully", msg.key)
+			m.ready = false
+			cmds = append(cmds, m.scanCmd(), m.countCmd())
+		}
+	case switchDBMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Failed to switch database: %v", msg.err)
+		} else {
+			// Close the old client
+			if m.rdb != nil {
+				_ = m.rdb.Close()
+			}
+			// Set the new client
+			m.rdb = msg.newRdb.(redis.UniversalClient)
+			m.db = msg.db
+			m.statusMessage = fmt.Sprintf("Switched to database %d", msg.db)
 			m.ready = false
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 		}
@@ -67,6 +83,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.handleDefaultState(msg))
 	case searchState:
 		cmds = append(cmds, m.handleSearchState(msg))
+	case switchDBState:
+		cmds = append(cmds, m.handleSwitchDBState(msg))
 	case confirmDeleteState:
 		cmds = append(cmds, m.handleConfirmDeleteState(msg))
 	case helpState:
@@ -96,6 +114,10 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 			case key.Matches(msg, m.keyMap.search):
 				m.state = searchState
 				m.textinput.Focus()
+				return textinput.Blink
+			case key.Matches(msg, m.keyMap.switchDB):
+				m.state = switchDBState
+				m.dbInput.Focus()
 				return textinput.Blink
 			case key.Matches(msg, m.keyMap.reload):
 				m.ready = false
@@ -182,6 +204,46 @@ func (m *model) handleConfirmDeleteState(msg tea.Msg) tea.Cmd {
 			m.keyToDelete = ""
 		}
 	}
+
+	return tea.Batch(cmds...)
+}
+
+func (m *model) handleSwitchDBState(msg tea.Msg) tea.Cmd {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEscape:
+			m.dbInput.Blur()
+			m.dbInput.Reset()
+			m.state = defaultState
+			return tea.Batch(cmds...)
+		case tea.KeyEnter:
+			dbStr := m.dbInput.Value()
+
+			m.dbInput.Blur()
+			m.dbInput.Reset()
+			m.state = defaultState
+
+			// Parse the database number
+			db := cast.ToInt(dbStr)
+			if dbStr == "" || db < 0 {
+				m.statusMessage = "Invalid database number"
+				return tea.Batch(cmds...)
+			}
+
+			m.ready = false
+			cmds = append(cmds, m.switchDBCmd(db))
+			return tea.Batch(cmds...)
+		}
+	}
+
+	m.dbInput, cmd = m.dbInput.Update(msg)
+	cmds = append(cmds, cmd)
 
 	return tea.Batch(cmds...)
 }

@@ -24,6 +24,7 @@ type state int
 const (
 	defaultState state = iota
 	searchState
+	switchDBState
 	confirmDeleteState
 	helpState
 )
@@ -32,12 +33,14 @@ const (
 type model struct {
 	width, height int
 
-	list      list.Model
-	textinput textinput.Model
-	viewport  viewport.Model
-	spinner   spinner.Model
+	list        list.Model
+	textinput   textinput.Model
+	dbInput     textinput.Model
+	viewport    viewport.Model
+	spinner     spinner.Model
 
 	rdb           redis.UniversalClient
+	redisOpts     *redis.UniversalOptions
 	db            int
 	searchValue   string
 	statusMessage string
@@ -55,7 +58,7 @@ type model struct {
 func New(config conf.Config) (*model, error) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
-	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
+	opts := &redis.UniversalOptions{
 		Addrs:        config.Addrs,
 		DB:           config.DB,
 		Username:     config.Username,
@@ -63,7 +66,8 @@ func New(config conf.Config) (*model, error) {
 		MaxRetries:   constant.MaxRetries,
 		MaxRedirects: constant.MaxRedirects,
 		MasterName:   config.MasterName,
-	})
+	}
+	rdb := redis.NewUniversalClient(opts)
 	_, err := rdb.Ping(context.Background()).Result()
 	if err != nil {
 		return nil, fmt.Errorf("connect to redis failed: %w", err)
@@ -73,6 +77,12 @@ func New(config conf.Config) (*model, error) {
 	t.Prompt = "> "
 	t.Placeholder = "Search Key"
 	t.PlaceholderStyle = lipgloss.NewStyle()
+
+	d := textinput.New()
+	d.Prompt = "> "
+	d.Placeholder = "Database Number"
+	d.PlaceholderStyle = lipgloss.NewStyle()
+	d.CharLimit = 4
 
 	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
 	l.Title = "Redis Viewer"
@@ -87,10 +97,12 @@ func New(config conf.Config) (*model, error) {
 	return &model{
 		list:      l,
 		textinput: t,
+		dbInput:   d,
 		spinner:   s,
 
-		rdb: rdb,
-		db:  config.DB,
+		rdb:       rdb,
+		redisOpts: opts,
+		db:        config.DB,
 
 		limit: config.Limit,
 

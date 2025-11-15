@@ -82,7 +82,8 @@ func (m model) helpView() string {
 		"  ←/→       Navigate panes",
 		"  r         Reload keys",
 		"  s         Search for keys",
-		"  d         Delete selected key",
+		"  d         Switch database",
+		"  x         Delete selected key",
 		"  ?         Toggle this help",
 		"  Ctrl+C    Quit application",
 		"",
@@ -121,6 +122,9 @@ func (m model) statusView() string {
 	case searchState:
 		status = "Search"
 		statusDesc = m.textinput.View()
+	case switchDBState:
+		status = "Switch DB"
+		statusDesc = m.dbInput.View()
 	case confirmDeleteState:
 		status = "Confirm"
 		statusKey = statusStyle.Render(status)

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/saltfishpr/redis-viewer/internal/rv"
 	"github.com/saltfishpr/redis-viewer/internal/util"
 
@@ -116,6 +117,34 @@ func (m model) deleteCmd(key string) tea.Cmd {
 	return func() tea.Msg {
 		err := rv.DeleteKey(m.rdb, key)
 		return deleteMsg{key: key, err: err}
+	}
+}
+
+type switchDBMsg struct {
+	db     int
+	newRdb interface{}
+	err    error
+}
+
+func (m model) switchDBCmd(db int) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+
+		// Create new options with the new database
+		newOpts := *m.redisOpts
+		newOpts.DB = db
+
+		// Create new client with the new database
+		newRdb := redis.NewUniversalClient(&newOpts)
+
+		// Test the connection
+		_, err := newRdb.Ping(ctx).Result()
+		if err != nil {
+			newRdb.Close()
+			return switchDBMsg{db: db, newRdb: nil, err: err}
+		}
+
+		return switchDBMsg{db: db, newRdb: newRdb, err: nil}
 	}
 }
 
