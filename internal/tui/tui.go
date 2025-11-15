@@ -38,6 +38,7 @@ type model struct {
 	spinner   spinner.Model
 
 	rdb           redis.UniversalClient
+	db            int
 	searchValue   string
 	statusMessage string
 	ready         bool
@@ -89,6 +90,7 @@ func New(config conf.Config) (*model, error) {
 		spinner:   s,
 
 		rdb: rdb,
+		db:  config.DB,
 
 		limit: config.Limit,
 
