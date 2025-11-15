@@ -353,6 +353,7 @@ func (m model) statsView() string {
 			lipgloss.Left,
 			headerStyle.Copy().Width(10).Render("Database"),
 			headerStyle.Copy().Width(15).Render("Keys"),
+			headerStyle.Copy().Width(15).Render("Memory"),
 			headerStyle.Copy().Width(20).Render("Avg TTL"),
 		)
 		sections = append(sections, tableHeader)
@@ -365,10 +366,16 @@ func (m model) statsView() string {
 				avgTTL = "No TTL"
 			}
 
+			memory := db.Memory
+			if memory == "" {
+				memory = "N/A"
+			}
+
 			row := lipgloss.JoinHorizontal(
 				lipgloss.Left,
 				rowStyle.Copy().Width(10).Render(fmt.Sprintf("DB %d", db.DB)),
 				rowStyle.Copy().Width(15).Render(formatNumber(db.Keys)),
+				rowStyle.Copy().Width(15).Render(memory),
 				rowStyle.Copy().Width(20).Render(avgTTL),
 			)
 			sections = append(sections, row)

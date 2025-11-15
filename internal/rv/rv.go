@@ -137,6 +137,7 @@ func FlushDB(rdb redis.UniversalClient) error {
 type DatabaseStats struct {
 	DB         int
 	Keys       int64
+	Memory     string
 	AvgTTL     string
 	SampleSize int
 }
@@ -268,6 +269,18 @@ func GetDatabaseStats(rdb redis.UniversalClient, db int, sampleSize int) (*Datab
 		}
 	}
 
+	// Calculate estimated memory usage by sampling keys
+	if stats.Keys > 0 && sampleSize > 0 {
+		totalMemory, err := calculateDatabaseMemory(rdb, stats.Keys, sampleSize)
+		if err == nil {
+			stats.Memory = formatBytes(totalMemory)
+		} else {
+			stats.Memory = "N/A"
+		}
+	} else {
+		stats.Memory = "0B"
+	}
+
 	return stats, nil
 }
 
@@ -323,6 +336,65 @@ func calculateAverageTTL(rdb redis.UniversalClient, sampleSize int) (string, err
 
 	avgSeconds := totalTTL / keysWithTTL
 	return formatSeconds(avgSeconds), nil
+}
+
+// calculateDatabaseMemory samples random keys and estimates total database memory usage
+func calculateDatabaseMemory(rdb redis.UniversalClient, totalKeys int64, sampleSize int) (int64, error) {
+	ctx := context.TODO()
+
+	var totalMemory int64
+	var sampledKeys int64
+
+	switch rdb := rdb.(type) {
+	case *redis.ClusterClient:
+		err := rdb.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
+			for i := 0; i < sampleSize; i++ {
+				key, err := client.RandomKey(ctx).Result()
+				if err != nil || key == "" {
+					continue
+				}
+
+				// Use MEMORY USAGE command to get memory used by this key
+				memUsage, err := client.MemoryUsage(ctx, key).Result()
+				if err != nil || memUsage <= 0 {
+					continue
+				}
+
+				atomic.AddInt64(&totalMemory, memUsage)
+				atomic.AddInt64(&sampledKeys, 1)
+			}
+			return nil
+		})
+		if err != nil {
+			return 0, err
+		}
+	default:
+		for i := 0; i < sampleSize; i++ {
+			key, err := rdb.RandomKey(ctx).Result()
+			if err != nil || key == "" {
+				continue
+			}
+
+			// Use MEMORY USAGE command to get memory used by this key
+			memUsage, err := rdb.MemoryUsage(ctx, key).Result()
+			if err != nil || memUsage <= 0 {
+				continue
+			}
+
+			totalMemory += memUsage
+			sampledKeys++
+		}
+	}
+
+	if sampledKeys == 0 {
+		return 0, nil
+	}
+
+	// Calculate average memory per key and multiply by total keys
+	avgMemoryPerKey := totalMemory / sampledKeys
+	estimatedTotal := avgMemoryPerKey * totalKeys
+
+	return estimatedTotal, nil
 }
 
 // Helper functions
