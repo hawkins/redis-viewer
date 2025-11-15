@@ -54,6 +54,7 @@ type model struct {
 	searchValue   string
 	fuzzyFilter   string
 	fuzzyStrict   bool
+	wordWrap      bool
 	statusMessage string
 	ready         bool
 	now           string

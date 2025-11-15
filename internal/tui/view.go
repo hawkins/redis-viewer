@@ -56,6 +56,10 @@ func (m model) viewportContent() string {
 		divider := dividerStyle.Render(strings.Repeat("-", width))
 
 		formattedValue := util.TryPrettyJSON(it.(item).val)
+		// Apply word wrapping if enabled
+		if m.wordWrap {
+			formattedValue = wordwrap.String(formattedValue, width)
+		}
 		value := fmt.Sprintf("Value: \n%s", formattedValue)
 
 		content := []string{keyType}
@@ -102,6 +106,7 @@ func (m model) helpView() string {
 		"  /         Fuzzy filter keys",
 		"  Ctrl+F    Toggle fuzzy/strict mode",
 		"  d         Switch database",
+		"  w         Toggle word wrap",
 		"  x         Delete selected key",
 		"  ?         Toggle this help",
 		"  Ctrl+C    Quit application",
@@ -135,7 +140,7 @@ func (m model) statusView() string {
 	var statusDesc string
 
 	// Pre-render fixed elements to get their widths
-	var statusKey, encoding, datetime string
+	var statusKey, encoding, wrapIndicator, datetime string
 
 	switch m.state {
 	case searchState:
@@ -155,10 +160,13 @@ func (m model) statusView() string {
 		status = "Confirm"
 		statusKey = statusStyle.Render(status)
 		encoding = encodingStyle.Render("UTF-8")
+		if m.wordWrap {
+			wrapIndicator = statusNugget.Copy().Background(lipgloss.Color("#50FA7B")).Render("WRAP")
+		}
 		datetime = datetimeStyle.Render(m.now)
 
 		// Calculate available width for the confirmation message
-		fixedWidth := lipgloss.Width(statusKey) + lipgloss.Width(encoding) + lipgloss.Width(datetime)
+		fixedWidth := lipgloss.Width(statusKey) + lipgloss.Width(encoding) + lipgloss.Width(wrapIndicator) + lipgloss.Width(datetime)
 		availableWidth := m.width - fixedWidth
 
 		// Account for the message template: "Delete key ''? (y/n)" = ~23 chars
@@ -204,12 +212,15 @@ func (m model) statusView() string {
 	if encoding == "" {
 		encoding = encodingStyle.Render("UTF-8")
 	}
+	if wrapIndicator == "" && m.wordWrap {
+		wrapIndicator = statusNugget.Copy().Background(lipgloss.Color("#50FA7B")).Render("WRAP")
+	}
 	if datetime == "" {
 		datetime = datetimeStyle.Render(m.now)
 	}
 
 	// Calculate available width for status description
-	availableWidth := m.width - lipgloss.Width(statusKey) - lipgloss.Width(encoding) - lipgloss.Width(datetime)
+	availableWidth := m.width - lipgloss.Width(statusKey) - lipgloss.Width(encoding) - lipgloss.Width(wrapIndicator) - lipgloss.Width(datetime)
 	if availableWidth < 0 {
 		availableWidth = 0
 	}
@@ -218,7 +229,7 @@ func (m model) statusView() string {
 		Width(availableWidth).
 		Render(statusDesc)
 
-	bar := lipgloss.JoinHorizontal(lipgloss.Top, statusKey, statusVal, encoding, datetime)
+	bar := lipgloss.JoinHorizontal(lipgloss.Top, statusKey, statusVal, encoding, wrapIndicator, datetime)
 
 	return statusBarStyle.Width(m.width).Render(bar)
 }

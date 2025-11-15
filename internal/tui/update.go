@@ -137,6 +137,15 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 						m.state = confirmDeleteState
 					}
 				}
+			case key.Matches(msg, m.keyMap.toggleWrap):
+				m.wordWrap = !m.wordWrap
+				if m.wordWrap {
+					m.statusMessage = "Word wrap enabled"
+				} else {
+					m.statusMessage = "Word wrap disabled"
+				}
+				// Update viewport content to reflect the change
+				m.viewport.SetContent(m.viewportContent())
 			case key.Matches(msg, m.keyMap.help):
 				m.state = helpState
 			}
