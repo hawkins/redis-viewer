@@ -1,9 +1,11 @@
 package util
 
 import (
+	encodingjson "encoding/json"
 	jsoniter "github.com/json-iterator/go"
 	"regexp"
 
+	"bytes"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -17,8 +19,8 @@ var (
 	jsonNullStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6347")) // Tomato (Red-like)
 
 	// Regex to match different JSON tokens
-	jsonKeyRegex    = regexp.MustCompile(`("([^"\\]*(?:\\.[^"\\]*)*)")(\s*:)`)
-	jsonStringRegex = regexp.MustCompile(`"([^"\\]*(?:\\.[^"\\]*)*)"`)
+	jsonKeyRegex     = regexp.MustCompile(`("([^"\\]*(?:\\.[^"\\]*)*)")(\s*:)`)
+	jsonStringRegex  = regexp.MustCompile(`"([^"\\]*(?:\\.[^"\\]*)*)"`)
 	jsonNumberRegex  = regexp.MustCompile(`\b(-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)\b`)
 	jsonBooleanRegex = regexp.MustCompile(`\b(true|false)\b`)
 	jsonNullRegex    = regexp.MustCompile(`\b(null)\b`)
@@ -33,10 +35,13 @@ func TryPrettyJSON(input string) string {
 		return input
 	}
 	// It's a valid JSON, pretty print it
-	pretty, err := json.MarshalIndent(raw, "", "  ")
+
+	var out bytes.Buffer
+	err := encodingjson.Indent(&out, []byte(input), "", "  ")
 	if err != nil {
 		return input
 	}
+	pretty := out.String()
 
 	// Apply syntax highlighting
 	highlighted := string(pretty)
