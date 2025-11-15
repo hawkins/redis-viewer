@@ -39,7 +39,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		detailViewWidth := m.width - listViewWidth
 		m.viewport = viewport.New(detailViewWidth, height)
 		m.viewport.MouseWheelEnabled = true
-		m.viewport.SetContent(m.viewportContent(m.viewport.Width))
+		m.viewport.SetContent(m.viewportContent())
 	case tickMsg:
 		m.now = msg.t
 		cmds = append(cmds, m.tickCmd())
@@ -96,7 +96,7 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 			m.list, cmd = m.list.Update(msg)
 			cmds = append(cmds, cmd)
 			m.viewport.GotoTop()
-			m.viewport.SetContent(m.viewportContent(m.viewport.Width))
+			m.viewport.SetContent(m.viewportContent())
 		}
 	default:
 		m.list, cmd = m.list.Update(msg)

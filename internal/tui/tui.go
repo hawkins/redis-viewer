@@ -7,6 +7,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"github.com/muesli/termenv"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -48,6 +49,8 @@ type model struct {
 }
 
 func New(config conf.Config) (*model, error) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
 	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:        config.Addrs,
 		DB:           config.DB,

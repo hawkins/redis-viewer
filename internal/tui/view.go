@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/reflow/wordwrap"
 	"github.com/saltfishpr/redis-viewer/internal/util"
 )
 
@@ -38,30 +37,29 @@ func (m model) listView() string {
 	return listViewStyle.Render(m.list.View())
 }
 
-func (m model) viewportContent(width int) string {
-	var builder strings.Builder
-	divider := dividerStyle.Render(strings.Repeat("-", width)) + "\n"
+func (m model) viewportContent() string {
 	if it := m.list.SelectedItem(); it != nil {
-		keyType := fmt.Sprintf("KeyType: %s\n", it.(item).keyType)
-		wrappedKey := wordwrap.String(it.(item).key, width)
-		key := fmt.Sprintf("Key: \n%s\n", wrappedKey)
+		keyType := fmt.Sprintf("KeyType: %s", it.(item).keyType)
+		key := fmt.Sprintf("Key: \n%s", it.(item).key)
 		formattedValue := util.TryPrettyJSON(it.(item).val)
-		value := fmt.Sprintf("Value: \n%s\n", formattedValue)
-		expiration := it.(item).expiration
+		value := fmt.Sprintf("Value: \n%s", formattedValue)
 
-		builder.WriteString(keyType)
-		if expiration != "" {
-			builder.WriteString(fmt.Sprintf("TTL: %s\n", expiration))
+		content := []string{keyType}
+		if it.(item).expiration != "" {
+			content = append(content, fmt.Sprintf("TTL: %s", it.(item).expiration))
 		}
-		builder.WriteString(divider)
-		builder.WriteString(key)
-		builder.WriteString(divider)
-		builder.WriteString(value)
-	} else {
-		builder.WriteString("No item selected")
+
+		width := m.viewport.Width
+		divider := dividerStyle.Render(strings.Repeat("-", width))
+
+		content = append(content, divider, key, divider, value)
+
+		finalContent := lipgloss.JoinVertical(lipgloss.Left, content...)
+
+		return finalContent
 	}
 
-	return wordwrap.String(builder.String(), width)
+	return "No item selected"
 }
 
 func (m model) detailView() string {
