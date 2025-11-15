@@ -83,6 +83,7 @@ func (m model) helpView() string {
 		"  r         Reload keys",
 		"  s         Search for keys",
 		"  /         Fuzzy filter keys",
+		"  Ctrl+F    Toggle fuzzy/strict mode",
 		"  d         Switch database",
 		"  x         Delete selected key",
 		"  ?         Toggle this help",
@@ -124,7 +125,11 @@ func (m model) statusView() string {
 		status = "Search"
 		statusDesc = m.textinput.View()
 	case fuzzySearchState:
-		status = "Fuzzy"
+		if m.fuzzyStrict {
+			status = "Strict"
+		} else {
+			status = "Fuzzy"
+		}
 		statusDesc = m.fuzzyInput.View()
 	case switchDBState:
 		status = "Switch DB"
@@ -161,10 +166,16 @@ func (m model) statusView() string {
 		}
 		// Show active fuzzy filter in status
 		if m.fuzzyFilter != "" {
-			if m.statusMessage != "" {
-				statusDesc = fmt.Sprintf("[Filter: %s] %s", m.fuzzyFilter, m.statusMessage)
+			var modeLabel string
+			if m.fuzzyStrict {
+				modeLabel = "Strict Filter"
 			} else {
-				statusDesc = fmt.Sprintf("[Filter: %s]", m.fuzzyFilter)
+				modeLabel = "Fuzzy Filter"
+			}
+			if m.statusMessage != "" {
+				statusDesc = fmt.Sprintf("[%s: %s] %s", modeLabel, m.fuzzyFilter, m.statusMessage)
+			} else {
+				statusDesc = fmt.Sprintf("[%s: %s]", modeLabel, m.fuzzyFilter)
 			}
 		}
 	}

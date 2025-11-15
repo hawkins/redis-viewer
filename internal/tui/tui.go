@@ -46,6 +46,7 @@ type model struct {
 	db            int
 	searchValue   string
 	fuzzyFilter   string
+	fuzzyStrict   bool
 	statusMessage string
 	ready         bool
 	now           string

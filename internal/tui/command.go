@@ -98,12 +98,23 @@ func (m model) scanCmd() tea.Cmd {
 			}{keyType: kt, val: itemValue, err: hasErr, expiration: expirationStr}
 		}
 
-		// Apply fuzzy filtering if fuzzy filter is set
+		// Apply fuzzy or strict filtering if fuzzy filter is set
 		var filteredKeys []string
 		if m.fuzzyFilter != "" {
-			matches := fuzzy.Find(m.fuzzyFilter, allKeys)
-			for _, match := range matches {
-				filteredKeys = append(filteredKeys, match.Str)
+			if m.fuzzyStrict {
+				// Strict mode: case-insensitive substring matching
+				filterLower := strings.ToLower(m.fuzzyFilter)
+				for _, key := range allKeys {
+					if strings.Contains(strings.ToLower(key), filterLower) {
+						filteredKeys = append(filteredKeys, key)
+					}
+				}
+			} else {
+				// Fuzzy mode: fuzzy matching
+				matches := fuzzy.Find(m.fuzzyFilter, allKeys)
+				for _, match := range matches {
+					filteredKeys = append(filteredKeys, match.Str)
+				}
 			}
 		} else {
 			filteredKeys = allKeys

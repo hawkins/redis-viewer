@@ -143,6 +143,20 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 		case tea.KeyCtrlC:
 			cmd = tea.Quit
 			cmds = append(cmds, cmd)
+		case tea.KeyCtrlF:
+			// Toggle between fuzzy and strict mode
+			m.fuzzyStrict = !m.fuzzyStrict
+			// Update status message to reflect mode change
+			if m.fuzzyStrict {
+				m.statusMessage = "Switched to strict mode"
+			} else {
+				m.statusMessage = "Switched to fuzzy mode"
+			}
+			// Re-scan if there's an active filter
+			if m.fuzzyFilter != "" {
+				m.ready = false
+				cmds = append(cmds, m.scanCmd(), m.countCmd())
+			}
 		case tea.KeyUp, tea.KeyDown, tea.KeyLeft, tea.KeyRight:
 			m.list, cmd = m.list.Update(msg)
 			cmds = append(cmds, cmd)
@@ -207,6 +221,11 @@ func (m *model) handleFuzzySearchState(msg tea.Msg) tea.Cmd {
 		case tea.KeyCtrlC:
 			cmd = tea.Quit
 			cmds = append(cmds, cmd)
+			return tea.Batch(cmds...)
+		case tea.KeyCtrlF:
+			// Toggle between fuzzy and strict mode
+			m.fuzzyStrict = !m.fuzzyStrict
+			// Don't update fuzzyInput when toggling mode
 			return tea.Batch(cmds...)
 		case tea.KeyEscape:
 			m.fuzzyInput.Blur()
