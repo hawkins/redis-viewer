@@ -1,5 +1,6 @@
 /*
 Copyright © 2022 saltfishpr saltfishpr@gmail.com
+Copyright © 2025 Josh Hawkins @hawkins
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

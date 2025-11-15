@@ -6,35 +6,16 @@ A tool to view Redis data in terminal.
 
 ## Install
 
-Go version >=1.16: `go install github.com/saltfishpr/redis-viewer@latest`
+`go install github.com/hawkins/redis-viewer`
 
-or
-
-Download from [Release](https://github.com/saltfishpr/redis-viewer/releases).
 
 ## Usage:
 
-See help: `redis-viewer --help`
+See help: `redis-viewer --help` or press `?` inside the application to see keybindings
 
-| KeyBoard | Description            |
-| :------: | :--------------------- |
-|  ctrl+c  | exit redis viewer      |
-|    ↑     | previous key           |
-|    ↓     | next key               |
-|    ←     | previous page          |
-|    →     | next page              |
-|    r     | reload data from redis |
-|    s     | enter search keywords  |
-|  enter   | apply scan with text   |
+Default config file path is `$HOME/.redis-viewer.yaml`
 
-|    Mouse    | Description        |
-| :---------: | :----------------- |
-|  scroll up  | detail scroll up   |
-| scroll down | detail scroll down |
-
-default config file path is `$HOME/.redis-viewer.yaml`
-
-example config file:
+Example config file:
 
 ```yaml
 addrs:
@@ -61,10 +42,5 @@ master_name:
 
 In Windows, you should change system encoding to `UTF-8` before run this program.
 
-## TODOs:
 
--   [x] Add load animation.
--   [x] Friendly value detail.
--   [ ] Add log view.
-
-Build with [bubbletea](https://github.com/charmbracelet/bubbletea).
+Built with [bubbletea](https://github.com/charmbracelet/bubbletea).
