@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 	"github.com/saltfishpr/redis-viewer/internal/util"
 )
 
@@ -40,7 +41,11 @@ func (m model) listView() string {
 func (m model) viewportContent() string {
 	if it := m.list.SelectedItem(); it != nil {
 		keyType := fmt.Sprintf("KeyType: %s", it.(item).keyType)
-		key := fmt.Sprintf("Key: \n%s", it.(item).key)
+		width := m.viewport.Width
+		wrappedKey := wordwrap.String(it.(item).key, width)
+		key := fmt.Sprintf("Key: \n%s", wrappedKey)
+		divider := dividerStyle.Render(strings.Repeat("-", width))
+
 		formattedValue := util.TryPrettyJSON(it.(item).val)
 		value := fmt.Sprintf("Value: \n%s", formattedValue)
 
@@ -48,9 +53,6 @@ func (m model) viewportContent() string {
 		if it.(item).expiration != "" {
 			content = append(content, fmt.Sprintf("TTL: %s", it.(item).expiration))
 		}
-
-		width := m.viewport.Width
-		divider := dividerStyle.Render(strings.Repeat("-", width))
 
 		content = append(content, divider, key, divider, value)
 
