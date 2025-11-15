@@ -25,6 +25,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// global msg handling
 	switch msg := msg.(type) {
+	case statsMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Failed to load stats: %v", msg.err)
+			m.statsData = &statsData{loading: false, err: msg.err}
+		} else {
+			m.statsData = &statsData{
+				serverStats: msg.serverStats,
+				dbStats:     msg.dbStats,
+				loading:     false,
+				err:         nil,
+			}
+		}
 	case deleteMsg:
 		if msg.err != nil {
 			m.statusMessage = fmt.Sprintf("Failed to delete key: %v", msg.err)
@@ -101,6 +113,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.handleConfirmPurgeState(msg))
 	case helpState:
 		cmds = append(cmds, m.handleHelpState(msg))
+	case statsState:
+		cmds = append(cmds, m.handleStatsState(msg))
 	}
 
 	m.spinner, cmd = m.spinner.Update(msg)
@@ -161,6 +175,11 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 				m.viewport.SetContent(m.viewportContent())
 			case key.Matches(msg, m.keyMap.help):
 				m.state = helpState
+			case key.Matches(msg, m.keyMap.stats):
+				// Enter stats state and start loading stats
+				m.state = statsState
+				m.statsData = &statsData{loading: true}
+				cmds = append(cmds, m.statsCmd())
 			}
 		case tea.KeyCtrlC:
 			cmd = tea.Quit
@@ -376,6 +395,25 @@ func (m *model) handleHelpState(msg tea.Msg) tea.Cmd {
 		case "?", "esc":
 			// Close help dialog
 			m.state = defaultState
+		}
+	}
+
+	return tea.Batch(cmds...)
+}
+
+func (m *model) handleStatsState(msg tea.Msg) tea.Cmd {
+	var cmds []tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "i", "esc", "q":
+			// Close stats page
+			m.state = defaultState
+		case "r":
+			// Reload stats
+			m.statsData = &statsData{loading: true}
+			cmds = append(cmds, m.statsCmd())
 		}
 	}
 

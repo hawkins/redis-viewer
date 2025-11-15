@@ -241,3 +241,58 @@ func formatDuration(d time.Duration) string {
 
 	return strings.Join(parts, " ")
 }
+
+type statsMsg struct {
+	serverStats *rv.ServerStats
+	dbStats     []*rv.DatabaseStats
+	err         error
+}
+
+func (m model) statsCmd() tea.Cmd {
+	return func() tea.Msg {
+		// Get server stats
+		serverStats, err := rv.GetServerStats(m.rdb)
+		if err != nil {
+			return statsMsg{err: err}
+		}
+
+		// Get stats for multiple databases (0-15 for standard Redis)
+		var dbStats []*rv.DatabaseStats
+		maxDB := 16 // Standard Redis has 16 databases (0-15)
+
+		// For cluster mode, only DB 0 is available
+		if _, ok := m.rdb.(*redis.ClusterClient); ok {
+			maxDB = 1
+		}
+
+		for i := 0; i < maxDB; i++ {
+			// Create a client for this specific database
+			opts := *m.redisOpts
+			opts.DB = i
+
+			dbClient := redis.NewUniversalClient(&opts)
+			defer dbClient.Close()
+
+			// Test if this database is accessible
+			ctx := context.Background()
+			_, err := dbClient.Ping(ctx).Result()
+			if err != nil {
+				// Skip databases that are not accessible
+				continue
+			}
+
+			// Get stats for this database (sample 10 keys for TTL average)
+			stats, err := rv.GetDatabaseStats(dbClient, i, 10)
+			if err == nil && stats.Keys > 0 {
+				// Only include databases that have keys
+				dbStats = append(dbStats, stats)
+			}
+		}
+
+		return statsMsg{
+			serverStats: serverStats,
+			dbStats:     dbStats,
+			err:         nil,
+		}
+	}
+}

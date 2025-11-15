@@ -16,6 +16,7 @@ type keyMap struct {
 	switchDB    key.Binding
 	toggleWrap  key.Binding
 	help        key.Binding
+	stats       key.Binding
 }
 
 // defaultKeyMap returns a set of default keybindings.
@@ -44,6 +45,9 @@ func defaultKeyMap() keyMap {
 		),
 		help: key.NewBinding(
 			key.WithKeys("?"),
+		),
+		stats: key.NewBinding(
+			key.WithKeys("i"),
 		),
 	}
 }

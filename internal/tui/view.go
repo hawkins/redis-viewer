@@ -107,6 +107,7 @@ func (m model) helpView() string {
 		"  Ctrl+F    Toggle fuzzy/strict mode",
 		"  d         Switch database",
 		"  w         Toggle word wrap",
+		"  i         View server statistics",
 		"  x         Delete selected key",
 		"  P         Purge database (delete all keys)",
 		"  ?         Toggle this help",
@@ -244,12 +245,194 @@ func (m model) statusView() string {
 	return statusBarStyle.Width(m.width).Render(bar)
 }
 
+func (m model) statsView() string {
+	if m.statsData == nil || m.statsData.loading {
+		// Show loading state
+		loadingMsg := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF5F87")).
+			Bold(true).
+			Render(m.spinner.View() + " Loading statistics...")
+
+		return lipgloss.Place(
+			m.width,
+			m.height-lipgloss.Height(m.statusView()),
+			lipgloss.Center,
+			lipgloss.Center,
+			loadingMsg,
+		)
+	}
+
+	if m.statsData.err != nil {
+		// Show error state
+		errorMsg := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF0000")).
+			Bold(true).
+			Render(fmt.Sprintf("Error loading stats: %v", m.statsData.err))
+
+		return lipgloss.Place(
+			m.width,
+			m.height-lipgloss.Height(m.statusView()),
+			lipgloss.Center,
+			lipgloss.Center,
+			errorMsg,
+		)
+	}
+
+	// Title
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FF5F87")).
+		MarginBottom(1)
+
+	sectionStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#A550DF")).
+		MarginTop(1).
+		MarginBottom(1)
+
+	labelStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"}).
+		Width(25)
+
+	valueStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.AdaptiveColor{Light: "#343433", Dark: "#C1C6B2"}).
+		Bold(true)
+
+	var sections []string
+
+	// Title
+	sections = append(sections, titleStyle.Render("Redis Server Statistics"))
+
+	// Server Info Section
+	if m.statsData.serverStats != nil {
+		s := m.statsData.serverStats
+		sections = append(sections, sectionStyle.Render("Server Information"))
+
+		serverInfo := []string{
+			labelStyle.Render("Redis Version:") + valueStyle.Render(s.Version),
+			labelStyle.Render("Uptime:") + valueStyle.Render(formatUptime(s.UptimeSeconds)),
+			labelStyle.Render("Connected Clients:") + valueStyle.Render(fmt.Sprintf("%d", s.ConnectedClients)),
+			labelStyle.Render("Ops/sec:") + valueStyle.Render(fmt.Sprintf("%d", s.OpsPerSec)),
+			labelStyle.Render("Total Commands:") + valueStyle.Render(formatNumber(s.TotalCommandsProcessed)),
+		}
+		sections = append(sections, lipgloss.JoinVertical(lipgloss.Left, serverInfo...))
+
+		// Memory Section
+		sections = append(sections, sectionStyle.Render("Memory Statistics"))
+
+		usedMem := s.UsedMemory
+		if usedMem == "" {
+			usedMem = "N/A"
+		}
+		peakMem := s.UsedMemoryPeak
+		if peakMem == "" {
+			peakMem = "N/A"
+		}
+
+		memoryInfo := []string{
+			labelStyle.Render("Used Memory:") + valueStyle.Render(usedMem),
+			labelStyle.Render("Peak Memory:") + valueStyle.Render(peakMem),
+			labelStyle.Render("Fragmentation Ratio:") + valueStyle.Render(fmt.Sprintf("%.2f", s.MemFragmentationRatio)),
+			labelStyle.Render("Evicted Keys:") + valueStyle.Render(formatNumber(s.EvictedKeys)),
+			labelStyle.Render("Expired Keys:") + valueStyle.Render(formatNumber(s.ExpiredKeys)),
+		}
+		sections = append(sections, lipgloss.JoinVertical(lipgloss.Left, memoryInfo...))
+	}
+
+	// Database Section
+	if len(m.statsData.dbStats) > 0 {
+		sections = append(sections, sectionStyle.Render("Database Statistics"))
+
+		// Table header
+		headerStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#6124DF")).
+			Width(15)
+
+		tableHeader := lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			headerStyle.Copy().Width(10).Render("Database"),
+			headerStyle.Copy().Width(15).Render("Keys"),
+			headerStyle.Copy().Width(20).Render("Avg TTL"),
+		)
+		sections = append(sections, tableHeader)
+
+		// Table rows
+		rowStyle := lipgloss.NewStyle().Width(15)
+		for _, db := range m.statsData.dbStats {
+			avgTTL := db.AvgTTL
+			if avgTTL == "" {
+				avgTTL = "No TTL"
+			}
+
+			row := lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				rowStyle.Copy().Width(10).Render(fmt.Sprintf("DB %d", db.DB)),
+				rowStyle.Copy().Width(15).Render(formatNumber(db.Keys)),
+				rowStyle.Copy().Width(20).Render(avgTTL),
+			)
+			sections = append(sections, row)
+		}
+	}
+
+	// Footer
+	sections = append(sections, "")
+	sections = append(sections, lipgloss.NewStyle().
+		Foreground(lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"}).
+		Render("Press 'i', 'q', or ESC to close | Press 'r' to reload"))
+
+	content := lipgloss.JoinVertical(lipgloss.Left, sections...)
+
+	// Center the content
+	return lipgloss.Place(
+		m.width,
+		m.height-lipgloss.Height(m.statusView()),
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.NewStyle().
+			Padding(2, 4).
+			Render(content),
+	)
+}
+
+func formatUptime(seconds int64) string {
+	days := seconds / 86400
+	hours := (seconds % 86400) / 3600
+	minutes := (seconds % 3600) / 60
+
+	if days > 0 {
+		return fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
+	} else if hours > 0 {
+		return fmt.Sprintf("%dh %dm", hours, minutes)
+	}
+	return fmt.Sprintf("%dm", minutes)
+}
+
+func formatNumber(n int64) string {
+	s := fmt.Sprintf("%d", n)
+	if len(s) <= 3 {
+		return s
+	}
+
+	// Add commas for thousands separator
+	var result []byte
+	for i, c := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			result = append(result, ',')
+		}
+		result = append(result, byte(c))
+	}
+	return string(result)
+}
+
 func (m model) View() string {
 	// TODO: refresh status view only
 	var content string
 
-	// Show help dialog or main content
-	if m.state == helpState {
+	// Show stats page, help dialog, or main content
+	if m.state == statsState {
+		content = m.statsView()
+	} else if m.state == helpState {
 		content = m.helpView()
 	} else {
 		content = lipgloss.JoinHorizontal(lipgloss.Top, m.listView(), m.detailView())

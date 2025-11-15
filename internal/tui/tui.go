@@ -17,6 +17,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/saltfishpr/redis-viewer/internal/conf"
 	"github.com/saltfishpr/redis-viewer/internal/constant"
+	"github.com/saltfishpr/redis-viewer/internal/rv"
 )
 
 type state int
@@ -29,6 +30,7 @@ const (
 	confirmDeleteState
 	confirmPurgeState
 	helpState
+	statsState
 )
 
 type focusedPane int
@@ -37,6 +39,13 @@ const (
 	listPane focusedPane = iota
 	viewportPane
 )
+
+type statsData struct {
+	serverStats *rv.ServerStats
+	dbStats     []*rv.DatabaseStats
+	loading     bool
+	err         error
+}
 
 //nolint:govet
 type model struct {
@@ -60,6 +69,7 @@ type model struct {
 	ready         bool
 	now           string
 	keyToDelete   string
+	statsData     *statsData
 
 	offset int64
 	limit  int64 // scan size
