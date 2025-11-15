@@ -11,6 +11,7 @@ type keyMap struct {
 	reload key.Binding
 	search key.Binding
 	delete key.Binding
+	help   key.Binding
 }
 
 // defaultKeyMap returns a set of default keybindings.
@@ -24,6 +25,9 @@ func defaultKeyMap() keyMap {
 		),
 		delete: key.NewBinding(
 			key.WithKeys("d"),
+		),
+		help: key.NewBinding(
+			key.WithKeys("?"),
 		),
 	}
 }

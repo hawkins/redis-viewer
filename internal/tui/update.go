@@ -69,6 +69,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.handleSearchState(msg))
 	case confirmDeleteState:
 		cmds = append(cmds, m.handleConfirmDeleteState(msg))
+	case helpState:
+		cmds = append(cmds, m.handleHelpState(msg))
 	}
 
 	m.spinner, cmd = m.spinner.Update(msg)
@@ -106,6 +108,8 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 						m.state = confirmDeleteState
 					}
 				}
+			case key.Matches(msg, m.keyMap.help):
+				m.state = helpState
 			}
 		case tea.KeyCtrlC:
 			cmd = tea.Quit
@@ -176,6 +180,21 @@ func (m *model) handleConfirmDeleteState(msg tea.Msg) tea.Cmd {
 			// Cancel deletion
 			m.state = defaultState
 			m.keyToDelete = ""
+		}
+	}
+
+	return tea.Batch(cmds...)
+}
+
+func (m *model) handleHelpState(msg tea.Msg) tea.Cmd {
+	var cmds []tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "?", "esc":
+			// Close help dialog
+			m.state = defaultState
 		}
 	}
 

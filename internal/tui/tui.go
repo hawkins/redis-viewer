@@ -25,6 +25,7 @@ const (
 	defaultState state = iota
 	searchState
 	confirmDeleteState
+	helpState
 )
 
 //nolint:govet

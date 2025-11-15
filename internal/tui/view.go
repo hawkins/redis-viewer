@@ -68,6 +68,48 @@ func (m model) detailView() string {
 	return m.viewport.View()
 }
 
+func (m model) helpView() string {
+	helpTitle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FF5F87")).
+		Render("Keybindings")
+
+	helpItems := []string{
+		"",
+		helpTitle,
+		"",
+		"  ↑/↓       Navigate keys",
+		"  ←/→       Navigate panes",
+		"  r         Reload keys",
+		"  s         Search for keys",
+		"  d         Delete selected key",
+		"  ?         Toggle this help",
+		"  Ctrl+C    Quit application",
+		"",
+		"Press ? or ESC to close",
+	}
+
+	content := strings.Join(helpItems, "\n")
+
+	// Calculate the height for the help content area
+	// (same height as the main content area to prevent scrolling)
+	statusBarHeight := lipgloss.Height(m.statusView())
+	availableHeight := m.height - statusBarHeight
+
+	// Use lipgloss.Place to center the content
+	return lipgloss.Place(
+		m.width,
+		availableHeight,
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#343433", Dark: "#C1C6B2"}).
+			Background(lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#353533"}).
+			Padding(1, 2).
+			Render(content),
+	)
+}
+
 func (m model) statusView() string {
 	var status string
 	var statusDesc string
@@ -139,8 +181,14 @@ func (m model) statusView() string {
 
 func (m model) View() string {
 	// TODO: refresh status view only
-	return lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.JoinHorizontal(lipgloss.Top, m.listView(), m.detailView()),
-		m.statusView(),
-	)
+	var content string
+
+	// Show help dialog or main content
+	if m.state == helpState {
+		content = m.helpView()
+	} else {
+		content = lipgloss.JoinHorizontal(lipgloss.Top, m.listView(), m.detailView())
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, content, m.statusView())
 }
