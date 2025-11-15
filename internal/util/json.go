@@ -17,7 +17,7 @@ var (
 	jsonNullStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6347")) // Tomato (Red-like)
 
 	// Regex to match different JSON tokens
-	jsonKeyRegex    = regexp.MustCompile(`("([^"\\]*(?:\\.[^"\\]*)*)")\s*:`)
+	jsonKeyRegex    = regexp.MustCompile(`("([^"\\]*(?:\\.[^"\\]*)*)")(\s*:)`)
 	jsonStringRegex = regexp.MustCompile(`"([^"\\]*(?:\\.[^"\\]*)*)"`)
 	jsonNumberRegex  = regexp.MustCompile(`\b(-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)\b`)
 	jsonBooleanRegex = regexp.MustCompile(`\b(true|false)\b`)
@@ -56,9 +56,10 @@ func TryPrettyJSON(input string) string {
 	// Highlight keys first
 	highlighted = jsonKeyRegex.ReplaceAllStringFunc(highlighted, func(s string) string {
 		parts := jsonKeyRegex.FindStringSubmatch(s)
-		if len(parts) > 1 {
-			// parts[1] is the quoted key, parts[2] is the actual key name
-			return jsonKeyStyle.Render(parts[1]) + ":"
+		if len(parts) > 3 {
+			// parts[2] is the unquoted key
+			// parts[3] is the whitespace and colon
+			return "\"" + jsonKeyStyle.Render(parts[2]) + "\"" + parts[3]
 		}
 		return s
 	})
