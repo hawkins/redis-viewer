@@ -409,6 +409,12 @@ func (m *model) handleSearchState(msg tea.Msg) tea.Cmd {
 			m.textinput.Blur()
 			m.textinput.Reset()
 			m.state = defaultState
+			// Clear search if it was set
+			if m.searchValue != "" {
+				m.searchValue = ""
+				m.ready = false
+				cmds = append(cmds, m.scanCmd(), m.countCmd())
+			}
 			// Don't update textinput after state change
 			return tea.Batch(cmds...)
 		case tea.KeyEnter:
@@ -453,6 +459,12 @@ func (m *model) handleFuzzySearchState(msg tea.Msg) tea.Cmd {
 			m.fuzzyInput.Blur()
 			m.fuzzyInput.Reset()
 			m.state = defaultState
+			// Clear fuzzy filter if it was set
+			if m.fuzzyFilter != "" {
+				m.fuzzyFilter = ""
+				m.ready = false
+				cmds = append(cmds, m.scanCmd(), m.countCmd())
+			}
 			// Don't update fuzzyInput after state change
 			return tea.Batch(cmds...)
 		case tea.KeyEnter:
