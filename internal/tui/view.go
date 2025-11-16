@@ -52,7 +52,7 @@ func (m model) viewportContent() string {
 		keyType := fmt.Sprintf("KeyType: %s", it.(item).keyType)
 		width := m.viewport.Width
 		wrappedKey := wordwrap.String(it.(item).key, width)
-		key := fmt.Sprintf("Key: \n%s", wrappedKey)
+		key := fmt.Sprintf("%s", wrappedKey)
 		divider := dividerStyle.Render(strings.Repeat("-", width))
 
 		formattedValue := util.TryPrettyJSON(it.(item).val)
@@ -60,11 +60,11 @@ func (m model) viewportContent() string {
 		if m.wordWrap {
 			formattedValue = wordwrap.String(formattedValue, width)
 		}
-		value := fmt.Sprintf("Value: \n%s", formattedValue)
+		value := fmt.Sprintf("%s", formattedValue)
 
 		content := []string{keyType}
 		if it.(item).expiration != "" {
-			content = append(content, fmt.Sprintf("TTL: %s", it.(item).expiration))
+			content = append(content, fmt.Sprintf("TTL: %s (%d seconds)", it.(item).expiration, it.(item).ttlSeconds))
 		}
 
 		content = append(content, divider, key, divider, value)

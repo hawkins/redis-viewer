@@ -48,6 +48,7 @@ func (m model) scanCmd() tea.Cmd {
 			val        string
 			err        bool
 			expiration string
+			ttlSeconds int64
 		})
 
 		for keyMessage := range keyMessages {
@@ -59,8 +60,10 @@ func (m model) scanCmd() tea.Cmd {
 			kt := m.rdb.Type(ctx, keyMessage.Key).Val()
 			ttl, ttlErr := m.rdb.TTL(ctx, keyMessage.Key).Result()
 			var expirationStr string
+			var ttlSecs int64
 			if ttlErr == nil && ttl > 0 {
 				expirationStr = formatDuration(ttl)
+				ttlSecs = int64(ttl.Seconds())
 			}
 			switch kt {
 			case "string":
@@ -97,7 +100,8 @@ func (m model) scanCmd() tea.Cmd {
 				val        string
 				err        bool
 				expiration string
-			}{keyType: kt, val: itemValue, err: hasErr, expiration: expirationStr}
+				ttlSeconds int64
+			}{keyType: kt, val: itemValue, err: hasErr, expiration: expirationStr, ttlSeconds: ttlSecs}
 		}
 
 		// Apply fuzzy or strict filtering if fuzzy filter is set
@@ -131,6 +135,7 @@ func (m model) scanCmd() tea.Cmd {
 				val:        data.val,
 				err:        data.err,
 				expiration: data.expiration,
+				ttlSeconds: data.ttlSeconds,
 			})
 		}
 
