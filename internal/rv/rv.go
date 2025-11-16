@@ -15,7 +15,7 @@ import (
 )
 
 // CountKeys .
-func CountKeys(rdb redis.UniversalClient, match string) (int, error) {
+func CountKeys(rdb redis.UniversalClient, match string, unlimited bool) (int, error) {
 	ctx := context.TODO()
 
 	switch rdb := rdb.(type) {
@@ -26,7 +26,7 @@ func CountKeys(rdb redis.UniversalClient, match string) (int, error) {
 			iter := client.Scan(ctx, 0, match, 0).Iterator()
 			for iter.Next(ctx) {
 				atomic.AddInt64(&count, 1)
-				if count > constant.MaxScanCount {
+				if !unlimited && count > constant.MaxScanCount {
 					break
 				}
 			}
@@ -46,7 +46,7 @@ func CountKeys(rdb redis.UniversalClient, match string) (int, error) {
 		iter := rdb.Scan(ctx, 0, match, 0).Iterator()
 		for iter.Next(ctx) {
 			count++
-			if count > constant.MaxScanCount {
+			if !unlimited && count > constant.MaxScanCount {
 				break
 			}
 		}
@@ -70,6 +70,7 @@ func GetKeys(
 	cursor uint64,
 	match string,
 	count int64,
+	unlimited bool,
 ) <-chan keyMessage {
 	res := make(chan keyMessage, 1)
 
@@ -84,7 +85,7 @@ func GetKeys(
 				iter := client.Scan(ctx, cursor, match, 0).Iterator()
 				for iter.Next(ctx) {
 					atomic.AddInt64(&i, 1)
-					if i > count {
+					if !unlimited && i > count {
 						break
 					}
 					res <- keyMessage{iter.Val(), nil}
@@ -98,12 +99,35 @@ func GetKeys(
 				res <- keyMessage{"", err}
 			}
 		default:
-			keys, _, err := rdb.Scan(ctx, cursor, match, count).Result()
-			if err != nil {
-				res <- keyMessage{"", err}
-			} else {
-				for _, key := range keys {
+			// For non-cluster mode, if unlimited, scan until no more keys
+			if unlimited {
+				var allKeys []string
+				cursor := uint64(0)
+				for {
+					keys, nextCursor, err := rdb.Scan(ctx, cursor, match, count).Result()
+					if err != nil {
+						res <- keyMessage{"", err}
+						break
+					}
+					for _, key := range keys {
+						allKeys = append(allKeys, key)
+					}
+					cursor = nextCursor
+					if cursor == 0 {
+						break
+					}
+				}
+				for _, key := range allKeys {
 					res <- keyMessage{key, nil}
+				}
+			} else {
+				keys, _, err := rdb.Scan(ctx, cursor, match, count).Result()
+				if err != nil {
+					res <- keyMessage{"", err}
+				} else {
+					for _, key := range keys {
+						res <- keyMessage{key, nil}
+					}
 				}
 			}
 		}

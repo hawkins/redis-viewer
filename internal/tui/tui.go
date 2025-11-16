@@ -80,8 +80,9 @@ type model struct {
 	editingTmpFile  string
 	editingIsCreate bool
 
-	offset int64
-	limit  int64 // scan size
+	offset    int64
+	limit     int64 // scan size
+	unlimited bool  // disable 9999 key cap
 
 	keyMap
 	state
@@ -156,7 +157,8 @@ func New(config conf.Config) (*model, error) {
 		redisOpts: opts,
 		db:        config.DB,
 
-		limit: config.Limit,
+		limit:     config.Limit,
+		unlimited: config.Unlimited,
 
 		keyMap:  defaultKeyMap(),
 		state:   defaultState,

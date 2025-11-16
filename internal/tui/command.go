@@ -39,7 +39,7 @@ func (m model) scanCmd() tea.Cmd {
 			items []list.Item
 		)
 
-		keyMessages := rv.GetKeys(m.rdb, cast.ToUint64(m.offset*m.limit), m.searchValue, m.limit)
+		keyMessages := rv.GetKeys(m.rdb, cast.ToUint64(m.offset*m.limit), m.searchValue, m.limit, m.unlimited)
 
 		// Collect all keys for potential fuzzy filtering
 		var allKeys []string
@@ -144,7 +144,7 @@ type countMsg struct {
 
 func (m model) countCmd() tea.Cmd {
 	return func() tea.Msg {
-		count, err := rv.CountKeys(m.rdb, m.searchValue)
+		count, err := rv.CountKeys(m.rdb, m.searchValue, m.unlimited)
 		if err != nil {
 			return errMsg{err: err}
 		}
