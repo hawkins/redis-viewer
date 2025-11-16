@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -79,28 +80,58 @@ func GetKeys(
 
 		switch rdb := rdb.(type) {
 		case *redis.ClusterClient:
-			var i int64
-			// In unlimited mode, always start from cursor 0
 			if unlimited {
-				cursor = 0
-			}
+				// For unlimited mode, collect all keys from all masters first
+				var allKeys []string
+				var keysMutex sync.Mutex
 
-			err := rdb.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
-				iter := client.Scan(ctx, cursor, match, 0).Iterator()
-				for iter.Next(ctx) {
-					atomic.AddInt64(&i, 1)
-					if !unlimited && i > count {
-						break
+				err := rdb.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
+					cursor := uint64(0)
+					for {
+						keys, nextCursor, err := client.Scan(ctx, cursor, match, 0).Result()
+						if err != nil {
+							return err
+						}
+						if len(keys) > 0 {
+							keysMutex.Lock()
+							allKeys = append(allKeys, keys...)
+							keysMutex.Unlock()
+						}
+						cursor = nextCursor
+						if cursor == 0 {
+							break
+						}
 					}
-					res <- keyMessage{iter.Val(), nil}
+					return nil
+				})
+				if err != nil {
+					res <- keyMessage{"", err}
+				} else {
+					for _, key := range allKeys {
+						res <- keyMessage{key, nil}
+					}
 				}
-				if err := iter.Err(); err != nil {
-					return err
+			} else {
+				// For limited mode, use iterator with counter
+				var i int64
+
+				err := rdb.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
+					iter := client.Scan(ctx, cursor, match, 0).Iterator()
+					for iter.Next(ctx) {
+						atomic.AddInt64(&i, 1)
+						if i > count {
+							break
+						}
+						res <- keyMessage{iter.Val(), nil}
+					}
+					if err := iter.Err(); err != nil {
+						return err
+					}
+					return nil
+				})
+				if err != nil {
+					res <- keyMessage{"", err}
 				}
-				return nil
-			})
-			if err != nil {
-				res <- keyMessage{"", err}
 			}
 		default:
 			// For non-cluster mode, if unlimited, scan until no more keys
