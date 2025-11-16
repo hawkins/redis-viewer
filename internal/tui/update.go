@@ -151,6 +151,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.tickCmd())
 	case scanMsg:
 		m.list.SetItems(msg.items)
+		// Update viewport content to reflect the new/updated key values
+		m.viewport.GotoTop()
+		m.viewport.SetContent(m.viewportContent())
 	case countMsg:
 		if msg.count > constant.MaxScanCount {
 			m.statusMessage = fmt.Sprintf("DB %d: %d+ keys found", m.db, constant.MaxScanCount)
