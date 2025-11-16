@@ -80,6 +80,10 @@ func GetKeys(
 		switch rdb := rdb.(type) {
 		case *redis.ClusterClient:
 			var i int64
+			// In unlimited mode, always start from cursor 0
+			if unlimited {
+				cursor = 0
+			}
 
 			err := rdb.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
 				iter := client.Scan(ctx, cursor, match, 0).Iterator()
