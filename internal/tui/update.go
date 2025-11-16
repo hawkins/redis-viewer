@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/saltfishpr/redis-viewer/internal/constant"
+	"github.com/hawkins/redis-viewer/internal/constant"
 	"github.com/spf13/cast"
 
 	"github.com/charmbracelet/bubbles/key"

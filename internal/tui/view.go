@@ -9,7 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
-	"github.com/saltfishpr/redis-viewer/internal/util"
+	"github.com/hawkins/redis-viewer/internal/util"
 )
 
 var (

@@ -28,9 +28,9 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/saltfishpr/redis-viewer/internal/conf"
-	"github.com/saltfishpr/redis-viewer/internal/constant"
-	"github.com/saltfishpr/redis-viewer/internal/tui"
+	"github.com/hawkins/redis-viewer/internal/conf"
+	"github.com/hawkins/redis-viewer/internal/constant"
+	"github.com/hawkins/redis-viewer/internal/tui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

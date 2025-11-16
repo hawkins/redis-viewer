@@ -15,9 +15,9 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/go-redis/redis/v8"
-	"github.com/saltfishpr/redis-viewer/internal/conf"
-	"github.com/saltfishpr/redis-viewer/internal/constant"
-	"github.com/saltfishpr/redis-viewer/internal/rv"
+	"github.com/hawkins/redis-viewer/internal/conf"
+	"github.com/hawkins/redis-viewer/internal/constant"
+	"github.com/hawkins/redis-viewer/internal/rv"
 )
 
 type state int

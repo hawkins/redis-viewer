@@ -14,8 +14,8 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/sahilm/fuzzy"
-	"github.com/saltfishpr/redis-viewer/internal/rv"
-	"github.com/saltfishpr/redis-viewer/internal/util"
+	"github.com/hawkins/redis-viewer/internal/rv"
+	"github.com/hawkins/redis-viewer/internal/util"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"

@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/saltfishpr/redis-viewer/internal/constant"
+	"github.com/hawkins/redis-viewer/internal/constant"
 
 	"github.com/go-redis/redis/v8"
 )

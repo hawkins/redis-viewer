@@ -1,6 +1,6 @@
 package main
 
-import "github.com/saltfishpr/redis-viewer/cmd"
+import "github.com/hawkins/redis-viewer/cmd"
 
 func main() {
 	cmd.Execute()
