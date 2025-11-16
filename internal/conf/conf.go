@@ -17,8 +17,7 @@ type Config struct {
 	// sentinel
 	MasterName string `mapstructure:"master_name"`
 
-	Limit     int64 `mapstructure:"limit"`     // default 20
-	Unlimited bool  `mapstructure:"unlimited"` // disable 9999 key cap
+	Limit int64 `mapstructure:"limit"` // scan count per page
 }
 
 // Get returns the users config.

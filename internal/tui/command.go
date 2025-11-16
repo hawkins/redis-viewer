@@ -41,78 +41,16 @@ type scanStartedMsg struct{}
 const scanBatchSize = 50 // Process and display keys in batches of 50
 
 func (m model) scanCmd() tea.Cmd {
-	// Use streaming scan in unlimited mode for better UX
-	if m.unlimited {
-		return m.scanStreamCmd()
-	}
-
-	// Standard scan for limited mode
-	return func() tea.Msg {
-		ctx := context.Background()
-
-		keyMessages := rv.GetKeys(m.rdb, cast.ToUint64(m.offset*m.limit), m.searchValue, m.limit, m.unlimited)
-
-		// Collect all keys for potential fuzzy filtering
-		var allKeys []string
-		keyDataMap := make(map[string]struct {
-			keyType    string
-			ttlSeconds int64
-		})
-
-		var processedCount int
-		for keyMessage := range keyMessages {
-			if keyMessage.Err != nil {
-				return errMsg{err: keyMessage.Err}
-			}
-
-			processedCount++
-			allKeys = append(allKeys, keyMessage.Key)
-
-			// LAZY LOADING: Only fetch Type and TTL, not the value
-			kt := m.rdb.Type(ctx, keyMessage.Key).Val()
-			ttl, ttlErr := m.rdb.TTL(ctx, keyMessage.Key).Result()
-			var ttlSecs int64
-			if ttlErr == nil && ttl > 0 {
-				ttlSecs = int64(ttl.Seconds())
-			}
-
-			keyDataMap[keyMessage.Key] = struct {
-				keyType    string
-				ttlSeconds int64
-			}{keyType: kt, ttlSeconds: ttlSecs}
-		}
-
-		// Apply fuzzy or strict filtering if fuzzy filter is set
-		filteredKeys := m.applyFilter(allKeys)
-
-		// Build complete items list from filtered keys (values not loaded yet)
-		var items []list.Item
-		for _, key := range filteredKeys {
-			data := keyDataMap[key]
-			items = append(items, item{
-				keyType:    data.keyType,
-				key:        key,
-				val:        "", // Empty - will be loaded on demand
-				err:        false,
-				ttlSeconds: data.ttlSeconds,
-				loaded:     false, // Mark as not loaded
-			})
-		}
-
-		// Return all items with completion flag and total count
-		return scanMsg{
-			items:        items,
-			isComplete:   true,
-			totalScanned: processedCount,
-		}
-	}
+	// Use streaming scan for better UX
+	return m.scanStreamCmd()
 }
 
-// scanStreamCmd is optimized for unlimited mode - skips TYPE/TTL fetching during initial scan
+
+// scanStreamCmd skips TYPE/TTL fetching during initial scan for better performance
 // TYPE and TTL data will be fetched lazily when items are selected
 func (m model) scanStreamCmd() tea.Cmd {
 	return func() tea.Msg {
-		keyMessages := rv.GetKeys(m.rdb, cast.ToUint64(m.offset*m.limit), m.searchValue, m.limit, m.unlimited)
+		keyMessages := rv.GetKeys(m.rdb, cast.ToUint64(m.offset*m.limit), m.searchValue, m.limit)
 
 		// Quickly collect all key names (no TYPE/TTL - much faster!)
 		var allKeys []string
@@ -130,7 +68,7 @@ func (m model) scanStreamCmd() tea.Cmd {
 		// Apply filtering
 		filteredKeys := m.applyFilter(allKeys)
 
-		// Create items WITHOUT fetching TYPE/TTL - this makes unlimited mode MUCH faster
+		// Create items WITHOUT fetching TYPE/TTL - this makes scanning MUCH faster
 		var items []list.Item
 		for _, key := range filteredKeys {
 			items = append(items, item{
@@ -282,7 +220,7 @@ type countMsg struct {
 
 func (m model) countCmd() tea.Cmd {
 	return func() tea.Msg {
-		count, err := rv.CountKeys(m.rdb, m.searchValue, m.unlimited)
+		count, err := rv.CountKeys(m.rdb, m.searchValue)
 		if err != nil {
 			return errMsg{err: err}
 		}

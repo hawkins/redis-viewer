@@ -84,9 +84,7 @@ func init() {
 	rootCmd.PersistentFlags().
 		StringP("master-name", "m", "", "Redis Sentinel master name")
 	rootCmd.PersistentFlags().
-		Int64P("limit", "l", constant.DefaultCount, "Scan count limit per page")
-	rootCmd.PersistentFlags().
-		Bool("unlimited", false, "Disable 9999 key cap and load all keys (WARNING: may cause performance issues)")
+		Int64P("limit", "l", constant.DefaultCount, "Scan count per page")
 
 	// Bind flags to viper
 	viper.BindPFlag("addrs", rootCmd.PersistentFlags().Lookup("addrs"))
@@ -95,7 +93,6 @@ func init() {
 	viper.BindPFlag("password", rootCmd.PersistentFlags().Lookup("password"))
 	viper.BindPFlag("master_name", rootCmd.PersistentFlags().Lookup("master-name"))
 	viper.BindPFlag("limit", rootCmd.PersistentFlags().Lookup("limit"))
-	viper.BindPFlag("unlimited", rootCmd.PersistentFlags().Lookup("unlimited"))
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -3,7 +3,7 @@ package constant
 
 // default config
 const (
-	DefaultCount = 20
+	DefaultCount = 50
 )
 
 // redis
@@ -11,8 +11,6 @@ const (
 	MaxRetries = 3
 	// cluster
 	MaxRedirects = 10
-
-	MaxScanCount = 9999
 )
 
 // tui

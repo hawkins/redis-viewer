@@ -10,13 +10,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hawkins/redis-viewer/internal/constant"
-
 	"github.com/go-redis/redis/v8"
 )
 
 // CountKeys .
-func CountKeys(rdb redis.UniversalClient, match string, unlimited bool) (int, error) {
+func CountKeys(rdb redis.UniversalClient, match string) (int, error) {
 	ctx := context.TODO()
 
 	switch rdb := rdb.(type) {
@@ -27,9 +25,6 @@ func CountKeys(rdb redis.UniversalClient, match string, unlimited bool) (int, er
 			iter := client.Scan(ctx, 0, match, 0).Iterator()
 			for iter.Next(ctx) {
 				atomic.AddInt64(&count, 1)
-				if !unlimited && count > constant.MaxScanCount {
-					break
-				}
 			}
 			if err := iter.Err(); err != nil {
 				return err
@@ -47,9 +42,6 @@ func CountKeys(rdb redis.UniversalClient, match string, unlimited bool) (int, er
 		iter := rdb.Scan(ctx, 0, match, 0).Iterator()
 		for iter.Next(ctx) {
 			count++
-			if !unlimited && count > constant.MaxScanCount {
-				break
-			}
 		}
 		if err := iter.Err(); err != nil {
 			return 0, err
@@ -71,7 +63,6 @@ func GetKeys(
 	cursor uint64,
 	match string,
 	count int64,
-	unlimited bool,
 ) <-chan keyMessage {
 	res := make(chan keyMessage, 1)
 
@@ -80,90 +71,56 @@ func GetKeys(
 
 		switch rdb := rdb.(type) {
 		case *redis.ClusterClient:
-			if unlimited {
-				// For unlimited mode, collect all keys from all masters first
-				var allKeys []string
-				var keysMutex sync.Mutex
+			// Collect all keys from all masters
+			var allKeys []string
+			var keysMutex sync.Mutex
 
-				err := rdb.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
-					cursor := uint64(0)
-					for {
-						keys, nextCursor, err := client.Scan(ctx, cursor, match, 0).Result()
-						if err != nil {
-							return err
-						}
-						if len(keys) > 0 {
-							keysMutex.Lock()
-							allKeys = append(allKeys, keys...)
-							keysMutex.Unlock()
-						}
-						cursor = nextCursor
-						if cursor == 0 {
-							break
-						}
-					}
-					return nil
-				})
-				if err != nil {
-					res <- keyMessage{"", err}
-				} else {
-					for _, key := range allKeys {
-						res <- keyMessage{key, nil}
-					}
-				}
-			} else {
-				// For limited mode, use iterator with counter
-				var i int64
-
-				err := rdb.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
-					iter := client.Scan(ctx, cursor, match, 0).Iterator()
-					for iter.Next(ctx) {
-						atomic.AddInt64(&i, 1)
-						if i > count {
-							break
-						}
-						res <- keyMessage{iter.Val(), nil}
-					}
-					if err := iter.Err(); err != nil {
-						return err
-					}
-					return nil
-				})
-				if err != nil {
-					res <- keyMessage{"", err}
-				}
-			}
-		default:
-			// For non-cluster mode, if unlimited, scan until no more keys
-			if unlimited {
-				var allKeys []string
+			err := rdb.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
 				cursor := uint64(0)
 				for {
-					keys, nextCursor, err := rdb.Scan(ctx, cursor, match, count).Result()
+					keys, nextCursor, err := client.Scan(ctx, cursor, match, 0).Result()
 					if err != nil {
-						res <- keyMessage{"", err}
-						break
+						return err
 					}
-					for _, key := range keys {
-						allKeys = append(allKeys, key)
+					if len(keys) > 0 {
+						keysMutex.Lock()
+						allKeys = append(allKeys, keys...)
+						keysMutex.Unlock()
 					}
 					cursor = nextCursor
 					if cursor == 0 {
 						break
 					}
 				}
+				return nil
+			})
+			if err != nil {
+				res <- keyMessage{"", err}
+			} else {
 				for _, key := range allKeys {
 					res <- keyMessage{key, nil}
 				}
-			} else {
-				keys, _, err := rdb.Scan(ctx, cursor, match, count).Result()
+			}
+		default:
+			// Scan until no more keys
+			var allKeys []string
+			cursor := uint64(0)
+			for {
+				keys, nextCursor, err := rdb.Scan(ctx, cursor, match, count).Result()
 				if err != nil {
 					res <- keyMessage{"", err}
-				} else {
-					for _, key := range keys {
-						res <- keyMessage{key, nil}
-					}
+					break
 				}
+				for _, key := range keys {
+					allKeys = append(allKeys, key)
+				}
+				cursor = nextCursor
+				if cursor == 0 {
+					break
+				}
+			}
+			for _, key := range allKeys {
+				res <- keyMessage{key, nil}
 			}
 		}
 

@@ -80,9 +80,8 @@ type model struct {
 	editingTmpFile  string
 	editingIsCreate bool
 
-	offset    int64
-	limit     int64 // scan size
-	unlimited bool  // disable 9999 key cap
+	offset int64
+	limit  int64 // scan size
 
 	pendingScanItems []list.Item // for incremental UI updates
 	pendingScanIndex int         // next index to send to UI
@@ -164,10 +163,9 @@ func New(config conf.Config) (*model, error) {
 		redisOpts: opts,
 		db:        config.DB,
 
-		limit:     config.Limit,
-		unlimited: config.Unlimited,
+		limit: config.Limit,
 
-		keyMap:  defaultKeyMap(),
+		keyMap: defaultKeyMap(),
 		state:   defaultState,
 		focused: listPane,
 	}, nil
