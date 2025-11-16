@@ -218,7 +218,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pendingScanIndex = 0
 		}
 	case countMsg:
-		if msg.count > constant.MaxScanCount {
+		if !m.unlimited && msg.count > constant.MaxScanCount {
 			m.statusMessage = fmt.Sprintf("DB %d: %d+ keys found", m.db, constant.MaxScanCount)
 		} else {
 			m.statusMessage = fmt.Sprintf("DB %d: %d keys found", m.db, msg.count)
