@@ -63,8 +63,9 @@ func (m model) viewportContent() string {
 		value := fmt.Sprintf("%s", formattedValue)
 
 		content := []string{keyType}
-		if it.(item).expiration != "" {
-			content = append(content, fmt.Sprintf("TTL: %s (%d seconds)", it.(item).expiration, it.(item).ttlSeconds))
+		if it.(item).ttlSeconds > 0 {
+			ttlFormatted := formatTTLSeconds(it.(item).ttlSeconds)
+			content = append(content, fmt.Sprintf("TTL: %s (%d seconds)", ttlFormatted, it.(item).ttlSeconds))
 		}
 
 		content = append(content, divider, key, divider, value)
@@ -435,6 +436,35 @@ func formatNumber(n int64) string {
 		result = append(result, byte(c))
 	}
 	return string(result)
+}
+
+func formatTTLSeconds(seconds int64) string {
+	if seconds <= 0 {
+		return "" // No expiration or already expired
+	}
+
+	days := seconds / 86400
+	remaining := seconds % 86400
+	hours := remaining / 3600
+	remaining %= 3600
+	minutes := remaining / 60
+	secs := remaining % 60
+
+	var parts []string
+	if days > 0 {
+		parts = append(parts, fmt.Sprintf("%dd", days))
+	}
+	if hours > 0 || len(parts) > 0 {
+		parts = append(parts, fmt.Sprintf("%02dh", hours))
+	}
+	if minutes > 0 || len(parts) > 0 {
+		parts = append(parts, fmt.Sprintf("%02dm", minutes))
+	}
+	if secs > 0 || len(parts) == 0 {
+		parts = append(parts, fmt.Sprintf("%02ds", secs))
+	}
+
+	return strings.Join(parts, " ")
 }
 
 func (m model) View() string {

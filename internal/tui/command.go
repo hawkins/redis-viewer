@@ -47,7 +47,6 @@ func (m model) scanCmd() tea.Cmd {
 			keyType    string
 			val        string
 			err        bool
-			expiration string
 			ttlSeconds int64
 		})
 
@@ -59,10 +58,8 @@ func (m model) scanCmd() tea.Cmd {
 			allKeys = append(allKeys, keyMessage.Key)
 			kt := m.rdb.Type(ctx, keyMessage.Key).Val()
 			ttl, ttlErr := m.rdb.TTL(ctx, keyMessage.Key).Result()
-			var expirationStr string
 			var ttlSecs int64
 			if ttlErr == nil && ttl > 0 {
-				expirationStr = formatDuration(ttl)
 				ttlSecs = int64(ttl.Seconds())
 			}
 			switch kt {
@@ -99,9 +96,8 @@ func (m model) scanCmd() tea.Cmd {
 				keyType    string
 				val        string
 				err        bool
-				expiration string
 				ttlSeconds int64
-			}{keyType: kt, val: itemValue, err: hasErr, expiration: expirationStr, ttlSeconds: ttlSecs}
+			}{keyType: kt, val: itemValue, err: hasErr, ttlSeconds: ttlSecs}
 		}
 
 		// Apply fuzzy or strict filtering if fuzzy filter is set
@@ -134,7 +130,6 @@ func (m model) scanCmd() tea.Cmd {
 				key:        key,
 				val:        data.val,
 				err:        data.err,
-				expiration: data.expiration,
 				ttlSeconds: data.ttlSeconds,
 			})
 		}
@@ -231,35 +226,6 @@ func (m model) switchDBCmd(db int) tea.Cmd {
 
 		return switchDBMsg{db: db, newRdb: newRdb, err: nil}
 	}
-}
-
-func formatDuration(d time.Duration) string {
-	if d <= 0 {
-		return "" // No expiration or already expired
-	}
-
-	days := d / (24 * time.Hour)
-	remaining := d % (24 * time.Hour)
-	hours := remaining / time.Hour
-	remaining %= time.Hour
-	minutes := remaining / time.Minute
-	seconds := remaining % time.Minute / time.Second
-
-	var parts []string
-	if days > 0 {
-		parts = append(parts, fmt.Sprintf("%dd", days))
-	}
-	if hours > 0 || len(parts) > 0 {
-		parts = append(parts, fmt.Sprintf("%02dh", hours))
-	}
-	if minutes > 0 || len(parts) > 0 {
-		parts = append(parts, fmt.Sprintf("%02dm", minutes))
-	}
-	if seconds > 0 || len(parts) == 0 {
-		parts = append(parts, fmt.Sprintf("%02ds", seconds))
-	}
-
-	return strings.Join(parts, " ")
 }
 
 type statsMsg struct {

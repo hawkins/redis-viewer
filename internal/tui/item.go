@@ -13,8 +13,7 @@ type item struct {
 
 	key        string
 	val        string
-	expiration string // Store formatted expiration string
-	ttlSeconds int64  // Store TTL in seconds
+	ttlSeconds int64
 
 	err bool
 }
