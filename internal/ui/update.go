@@ -248,9 +248,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case StateDefault:
 		cmd = a.handleDefaultState(msg)
 		cmds = append(cmds, cmd)
-	case StateSearch:
-		a.searchDialog, cmd = a.searchDialog.Update(msg)
-		cmds = append(cmds, cmd)
 	case StateFuzzySearch:
 		a.filterDialog, cmd = a.filterDialog.Update(msg)
 		cmds = append(cmds, cmd)
@@ -305,30 +302,6 @@ func (a *App) handleDefaultState(msg tea.Msg) tea.Cmd {
 		switch msg.Type {
 		case tea.KeyRunes:
 			switch {
-			case key.Matches(msg, a.keyMap.Search):
-				a.state = StateSearch
-				a.searchDialog.SetCallbacks(
-					func(pattern string) tea.Cmd {
-						a.searchValue = pattern
-						a.state = StateDefault
-						a.ready = false
-						a.scanInProgress = true
-						a.scannedKeyCount = 0
-						return tea.Batch(a.scanCmd(), a.countCmd())
-					},
-					func() tea.Cmd {
-						a.state = StateDefault
-						if a.searchValue != "" {
-							a.searchValue = ""
-							a.ready = false
-							a.scanInProgress = true
-							a.scannedKeyCount = 0
-							return tea.Batch(a.scanCmd(), a.countCmd())
-						}
-						return nil
-					},
-				)
-				return a.searchDialog.Focus()
 			case key.Matches(msg, a.keyMap.FuzzySearch):
 				a.state = StateFuzzySearch
 				a.filterDialog.SetValue(a.fuzzyFilter)

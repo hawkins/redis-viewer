@@ -35,7 +35,6 @@ func (a App) helpView() string {
 		"  ↑/↓       Navigate keys",
 		"  ←/→       Navigate panes",
 		"  r         Reload keys",
-		"  s         Search for keys",
 		"  /         Fuzzy filter keys",
 		"  Ctrl+F    Toggle fuzzy/strict mode",
 		"  d         Switch database",
@@ -76,9 +75,6 @@ func (a App) statusView() string {
 	var statusKey, encoding, wrapIndicator, datetime string
 
 	switch a.state {
-	case StateSearch:
-		status = "Search"
-		statusDesc = a.searchDialog.View()
 	case StateFuzzySearch:
 		if a.fuzzyStrict {
 			status = "Strict"

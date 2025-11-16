@@ -5,7 +5,6 @@ import "github.com/charmbracelet/bubbles/key"
 // KeyMap defines the keybindings for the app
 type KeyMap struct {
 	Reload      key.Binding
-	Search      key.Binding
 	FuzzySearch key.Binding
 	Delete      key.Binding
 	Purge       key.Binding
@@ -23,9 +22,6 @@ func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		Reload: key.NewBinding(
 			key.WithKeys("r"),
-		),
-		Search: key.NewBinding(
-			key.WithKeys("s"),
 		),
 		FuzzySearch: key.NewBinding(
 			key.WithKeys("/"),

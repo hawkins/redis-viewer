@@ -22,7 +22,6 @@ type AppState int
 
 const (
 	StateDefault AppState = iota
-	StateSearch
 	StateFuzzySearch
 	StateSwitchDB
 	StateSetTTL
@@ -52,7 +51,6 @@ type App struct {
 	spinner   spinner.Model
 
 	// Dialogs
-	searchDialog   dialogs.SearchDialog
 	filterDialog   dialogs.FilterDialog
 	switchDBDialog dialogs.SwitchDBDialog
 	ttlInput       textinput.Model
@@ -67,7 +65,6 @@ type App struct {
 	// Application state
 	state          AppState
 	focused        FocusedPane
-	searchValue    string
 	fuzzyFilter    string
 	fuzzyStrict    bool
 	wordWrap       bool
@@ -149,7 +146,6 @@ func New(cfg config.Config) (*App, error) {
 		keyList:         keyListModel,
 		valueView:       valueViewModel,
 		spinner:         s,
-		searchDialog:    dialogs.NewSearchDialog(),
 		filterDialog:    dialogs.NewFilterDialog(),
 		switchDBDialog:  dialogs.NewSwitchDBDialog(),
 		ttlInput:        ttlInput,

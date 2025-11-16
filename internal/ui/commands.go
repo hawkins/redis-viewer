@@ -28,7 +28,7 @@ func (a App) scanCmd() tea.Cmd {
 // scanStreamCmd performs streaming key scan for better performance
 func (a App) scanStreamCmd() tea.Cmd {
 	return func() tea.Msg {
-		keyMessages := redis.GetKeys(a.rdb, cast.ToUint64(a.offset*a.limit), a.searchValue, a.limit)
+		keyMessages := redis.GetKeys(a.rdb, cast.ToUint64(a.offset*a.limit), "", a.limit)
 
 		// Quickly collect all key names (no TYPE/TTL - much faster!)
 		var allKeys []string
@@ -190,7 +190,7 @@ func (a App) displayBatchCmd() tea.Cmd {
 // countCmd counts matching keys
 func (a App) countCmd() tea.Cmd {
 	return func() tea.Msg {
-		count, err := redis.CountKeys(a.rdb, a.searchValue)
+		count, err := redis.CountKeys(a.rdb, "")
 		if err != nil {
 			return ErrMsg{Err: err}
 		}
