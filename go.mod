@@ -1,4 +1,4 @@
-module github.com/saltfishpr/redis-viewer
+module github.com/hawkins/redis-viewer
 
 go 1.16
 

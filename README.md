@@ -6,7 +6,7 @@ A tool to view Redis data in terminal.
 
 ## Install
 
-`go install github.com/hawkins/redis-viewer`
+`go install github.com/hawkins/redis-viewer@latest`
 
 
 ## Usage:
