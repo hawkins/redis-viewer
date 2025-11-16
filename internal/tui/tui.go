@@ -27,6 +27,7 @@ const (
 	searchState
 	fuzzySearchState
 	switchDBState
+	setTTLState
 	confirmDeleteState
 	confirmPurgeState
 	helpState
@@ -57,25 +58,27 @@ type model struct {
 	textinput      textinput.Model
 	fuzzyInput     textinput.Model
 	dbInput        textinput.Model
+	ttlInput       textinput.Model
 	createKeyInput textinput.Model
 	viewport       viewport.Model
 	spinner        spinner.Model
 
-	rdb           redis.UniversalClient
-	redisOpts     *redis.UniversalOptions
-	db            int
-	searchValue      string
-	fuzzyFilter      string
-	fuzzyStrict      bool
-	wordWrap         bool
-	statusMessage    string
-	ready            bool
-	now              string
-	keyToDelete      string
-	statsData        *statsData
-	editingKey       string
-	editingTmpFile   string
-	editingIsCreate  bool
+	rdb             redis.UniversalClient
+	redisOpts       *redis.UniversalOptions
+	db              int
+	searchValue     string
+	fuzzyFilter     string
+	fuzzyStrict     bool
+	wordWrap        bool
+	statusMessage   string
+	ready           bool
+	now             string
+	keyToDelete     string
+	keyToSetTTL     string
+	statsData       *statsData
+	editingKey      string
+	editingTmpFile  string
+	editingIsCreate bool
 
 	offset int64
 	limit  int64 // scan size
@@ -119,6 +122,12 @@ func New(config conf.Config) (*model, error) {
 	d.PlaceholderStyle = lipgloss.NewStyle()
 	d.CharLimit = 4
 
+	ttl := textinput.New()
+	ttl.Prompt = "> "
+	ttl.Placeholder = "TTL in seconds (or 0 to remove)"
+	ttl.PlaceholderStyle = lipgloss.NewStyle()
+	ttl.CharLimit = 10
+
 	c := textinput.New()
 	c.Prompt = "> "
 	c.Placeholder = "Key Name"
@@ -139,6 +148,7 @@ func New(config conf.Config) (*model, error) {
 		textinput:      t,
 		fuzzyInput:     f,
 		dbInput:        d,
+		ttlInput:       ttl,
 		createKeyInput: c,
 		spinner:        s,
 

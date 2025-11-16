@@ -106,6 +106,7 @@ func (m model) helpView() string {
 		"  /         Fuzzy filter keys",
 		"  Ctrl+F    Toggle fuzzy/strict mode",
 		"  d         Switch database",
+		"  t         Set TTL for selected key",
 		"  w         Toggle word wrap",
 		"  i         View server statistics",
 		"  e         Edit selected key in $EDITOR",
@@ -160,6 +161,9 @@ func (m model) statusView() string {
 	case switchDBState:
 		status = "Switch DB"
 		statusDesc = m.dbInput.View()
+	case setTTLState:
+		status = "Set TTL"
+		statusDesc = m.ttlInput.View()
 	case createKeyInputState:
 		status = "Create"
 		statusDesc = m.createKeyInput.View()

@@ -107,6 +107,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.ready = false
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 		}
+	case setTTLMsg:
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Failed to set TTL: %v", msg.err)
+		} else {
+			if msg.ttl <= 0 {
+				m.statusMessage = fmt.Sprintf("TTL removed from key '%s' (now persistent)", msg.key)
+			} else {
+				m.statusMessage = fmt.Sprintf("TTL set to %d seconds for key '%s'", msg.ttl, msg.key)
+			}
+			m.ready = false
+			cmds = append(cmds, m.scanCmd(), m.countCmd())
+		}
 	case purgeMsg:
 		if msg.err != nil {
 			m.statusMessage = fmt.Sprintf("Failed to purge database: %v", msg.err)
@@ -172,6 +184,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.handleFuzzySearchState(msg))
 	case switchDBState:
 		cmds = append(cmds, m.handleSwitchDBState(msg))
+	case setTTLState:
+		cmds = append(cmds, m.handleSetTTLState(msg))
 	case confirmDeleteState:
 		cmds = append(cmds, m.handleConfirmDeleteState(msg))
 	case confirmPurgeState:
@@ -219,6 +233,16 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 				m.state = switchDBState
 				m.dbInput.Focus()
 				return textinput.Blink
+			case key.Matches(msg, m.keyMap.setTTL):
+				// Get the selected item
+				if selectedItem := m.list.SelectedItem(); selectedItem != nil {
+					if i, ok := selectedItem.(item); ok {
+						m.keyToSetTTL = i.key
+						m.state = setTTLState
+						m.ttlInput.Focus()
+						return textinput.Blink
+					}
+				}
 			case key.Matches(msg, m.keyMap.reload):
 				m.ready = false
 				cmds = append(cmds, m.scanCmd(), m.countCmd())
@@ -546,4 +570,53 @@ func (m *model) handleEditingKeyState(msg tea.Msg) tea.Cmd {
 	// This state is non-interactive - we're waiting for the editor command to complete
 	// The command will send either editKeyMsg or createKeyMsg when done
 	return nil
+}
+
+func (m *model) handleSetTTLState(msg tea.Msg) tea.Cmd {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEscape:
+			m.ttlInput.Blur()
+			m.ttlInput.Reset()
+			m.state = defaultState
+			m.keyToSetTTL = ""
+			return tea.Batch(cmds...)
+		case tea.KeyEnter:
+			ttlStr := m.ttlInput.Value()
+
+			m.ttlInput.Blur()
+			m.ttlInput.Reset()
+			m.state = defaultState
+
+			// Parse the TTL value
+			ttl := cast.ToInt64(ttlStr)
+			if ttlStr == "" {
+				m.statusMessage = "TTL value cannot be empty. Use 0 to remove TTL."
+				m.keyToSetTTL = ""
+				return tea.Batch(cmds...)
+			}
+
+			if ttl < 0 {
+				m.statusMessage = "TTL value must be 0 or positive"
+				m.keyToSetTTL = ""
+				return tea.Batch(cmds...)
+			}
+
+			m.ready = false
+			cmds = append(cmds, m.setTTLCmd(m.keyToSetTTL, ttl))
+			m.keyToSetTTL = ""
+			return tea.Batch(cmds...)
+		}
+	}
+
+	m.ttlInput, cmd = m.ttlInput.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return tea.Batch(cmds...)
 }

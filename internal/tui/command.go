@@ -175,6 +175,19 @@ func (m model) deleteCmd(key string) tea.Cmd {
 	}
 }
 
+type setTTLMsg struct {
+	key string
+	ttl int64
+	err error
+}
+
+func (m model) setTTLCmd(key string, ttlSeconds int64) tea.Cmd {
+	return func() tea.Msg {
+		err := rv.SetKeyTTL(m.rdb, key, ttlSeconds)
+		return setTTLMsg{key: key, ttl: ttlSeconds, err: err}
+	}
+}
+
 type purgeMsg struct {
 	db  int
 	err error

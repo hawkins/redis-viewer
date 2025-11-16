@@ -14,6 +14,7 @@ type keyMap struct {
 	delete      key.Binding
 	purge       key.Binding
 	switchDB    key.Binding
+	setTTL      key.Binding
 	toggleWrap  key.Binding
 	help        key.Binding
 	stats       key.Binding
@@ -41,6 +42,9 @@ func defaultKeyMap() keyMap {
 		),
 		switchDB: key.NewBinding(
 			key.WithKeys("d"),
+		),
+		setTTL: key.NewBinding(
+			key.WithKeys("t"),
 		),
 		toggleWrap: key.NewBinding(
 			key.WithKeys("w"),

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/saltfishpr/redis-viewer/internal/constant"
 
@@ -123,6 +124,16 @@ func SetKey(rdb redis.UniversalClient, key string, value string) error {
 	return rdb.Set(ctx, key, value, 0).Err()
 }
 
+func SetKeyTTL(rdb redis.UniversalClient, key string, ttlSeconds int64) error {
+	ctx := context.TODO()
+	if ttlSeconds <= 0 {
+		// Remove TTL (make key persistent)
+		return rdb.Persist(ctx, key).Err()
+	}
+	// Set TTL
+	return rdb.Expire(ctx, key, time.Duration(ttlSeconds)*time.Second).Err()
+}
+
 func FlushDB(rdb redis.UniversalClient) error {
 	ctx := context.TODO()
 
@@ -148,16 +159,16 @@ type DatabaseStats struct {
 
 // ServerStats contains overall Redis server statistics
 type ServerStats struct {
-	Version            string
-	UptimeSeconds      int64
-	UsedMemory         string
-	UsedMemoryPeak     string
-	MemFragmentationRatio float64
-	ConnectedClients   int64
+	Version                string
+	UptimeSeconds          int64
+	UsedMemory             string
+	UsedMemoryPeak         string
+	MemFragmentationRatio  float64
+	ConnectedClients       int64
 	TotalCommandsProcessed int64
-	OpsPerSec          int64
-	EvictedKeys        int64
-	ExpiredKeys        int64
+	OpsPerSec              int64
+	EvictedKeys            int64
+	ExpiredKeys            int64
 }
 
 // GetServerStats retrieves server-level statistics from Redis INFO command
