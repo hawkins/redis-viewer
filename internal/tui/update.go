@@ -88,6 +88,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusMessage = fmt.Sprintf("Key '%s' updated successfully", msg.key)
 			m.ready = false
+			m.scanInProgress = true
+			m.scannedKeyCount = 0
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 		}
 	case createKeyResultMsg:
@@ -97,6 +99,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusMessage = fmt.Sprintf("Key '%s' created successfully", msg.key)
 			m.ready = false
+			m.scanInProgress = true
+			m.scannedKeyCount = 0
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 		}
 	case deleteMsg:
@@ -105,6 +109,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusMessage = fmt.Sprintf("Key '%s' deleted successfully", msg.key)
 			m.ready = false
+			m.scanInProgress = true
+			m.scannedKeyCount = 0
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 		}
 	case setTTLMsg:
@@ -117,6 +123,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.statusMessage = fmt.Sprintf("TTL set to %d seconds for key '%s'", msg.ttl, msg.key)
 			}
 			m.ready = false
+			m.scanInProgress = true
+			m.scannedKeyCount = 0
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 		}
 	case purgeMsg:
@@ -125,6 +133,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusMessage = fmt.Sprintf("Database %d purged successfully", msg.db)
 			m.ready = false
+			m.scanInProgress = true
+			m.scannedKeyCount = 0
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 		}
 	case switchDBMsg:
@@ -140,6 +150,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.db = msg.db
 			m.statusMessage = fmt.Sprintf("Switched to database %d", msg.db)
 			m.ready = false
+			m.scanInProgress = true
+			m.scannedKeyCount = 0
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 		}
 	case errMsg:
@@ -182,6 +194,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case scanMsg:
+		// Update progress tracking
+		m.scannedKeyCount = msg.totalScanned
+		m.scanInProgress = !msg.isComplete
+
 		// Scan completed - store items and begin incremental display
 		m.pendingScanItems = msg.items
 		m.pendingScanIndex = 0
@@ -190,11 +206,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent("")
 		// Start displaying items in batches
 		cmds = append(cmds, m.displayBatchCmd())
+
+		// Update status to show scan progress
+		if msg.isComplete {
+			m.scanInProgress = false
+		} else {
+			m.statusMessage = fmt.Sprintf("Scanning... %d keys processed", msg.totalScanned)
+		}
 	case scanBatchMsg:
 		// Append this batch to the list
 		currentItems := m.list.Items()
 		m.list.SetItems(append(currentItems, msg.batch...))
 		m.pendingScanIndex += len(msg.batch)
+
+		// Update progress display
+		if !msg.isComplete {
+			m.statusMessage = fmt.Sprintf("Displaying... %d/%d keys", m.pendingScanIndex, len(m.pendingScanItems))
+		}
 
 		// Update viewport and trigger lazy loading for first item
 		if len(currentItems) == 0 && len(msg.batch) > 0 {
@@ -216,8 +244,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// All batches displayed - clean up
 			m.pendingScanItems = nil
 			m.pendingScanIndex = 0
+			// Clear the displaying status - final count will be shown by countMsg
+			if m.totalKeysToScan > 0 {
+				if !m.unlimited && m.totalKeysToScan > constant.MaxScanCount {
+					m.statusMessage = fmt.Sprintf("DB %d: %d+ keys found", m.db, constant.MaxScanCount)
+				} else {
+					m.statusMessage = fmt.Sprintf("DB %d: %d keys found", m.db, m.totalKeysToScan)
+				}
+			}
 		}
 	case countMsg:
+		m.totalKeysToScan = msg.count
 		if !m.unlimited && msg.count > constant.MaxScanCount {
 			m.statusMessage = fmt.Sprintf("DB %d: %d+ keys found", m.db, constant.MaxScanCount)
 		} else {
@@ -296,6 +333,8 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 				}
 			case key.Matches(msg, m.keyMap.reload):
 				m.ready = false
+				m.scanInProgress = true
+				m.scannedKeyCount = 0
 				cmds = append(cmds, m.scanCmd(), m.countCmd())
 			case key.Matches(msg, m.keyMap.delete):
 				// Get the selected item
@@ -354,6 +393,8 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 			// Re-scan if there's an active filter
 			if m.fuzzyFilter != "" {
 				m.ready = false
+				m.scanInProgress = true
+				m.scannedKeyCount = 0
 				cmds = append(cmds, m.scanCmd(), m.countCmd())
 			}
 		case tea.KeyLeft:
@@ -413,6 +454,8 @@ func (m *model) handleSearchState(msg tea.Msg) tea.Cmd {
 			if m.searchValue != "" {
 				m.searchValue = ""
 				m.ready = false
+				m.scanInProgress = true
+				m.scannedKeyCount = 0
 				cmds = append(cmds, m.scanCmd(), m.countCmd())
 			}
 			// Don't update textinput after state change
@@ -425,6 +468,8 @@ func (m *model) handleSearchState(msg tea.Msg) tea.Cmd {
 			m.state = defaultState
 
 			m.ready = false
+			m.scanInProgress = true
+			m.scannedKeyCount = 0
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 			// Don't update textinput after state change
 			return tea.Batch(cmds...)
@@ -463,6 +508,8 @@ func (m *model) handleFuzzySearchState(msg tea.Msg) tea.Cmd {
 			if m.fuzzyFilter != "" {
 				m.fuzzyFilter = ""
 				m.ready = false
+				m.scanInProgress = true
+				m.scannedKeyCount = 0
 				cmds = append(cmds, m.scanCmd(), m.countCmd())
 			}
 			// Don't update fuzzyInput after state change
@@ -474,6 +521,8 @@ func (m *model) handleFuzzySearchState(msg tea.Msg) tea.Cmd {
 			m.state = defaultState
 
 			m.ready = false
+			m.scanInProgress = true
+			m.scannedKeyCount = 0
 			cmds = append(cmds, m.scanCmd(), m.countCmd())
 			// Don't update fuzzyInput after state change
 			return tea.Batch(cmds...)

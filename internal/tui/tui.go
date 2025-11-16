@@ -87,6 +87,10 @@ type model struct {
 	pendingScanItems []list.Item // for incremental UI updates
 	pendingScanIndex int         // next index to send to UI
 
+	scanInProgress   bool // whether a scan is currently running
+	scannedKeyCount  int  // number of keys processed during current scan
+	totalKeysToScan  int  // total number of keys to scan (from count)
+
 	keyMap
 	state
 	focused focusedPane

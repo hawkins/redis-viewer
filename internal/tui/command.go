@@ -32,9 +32,22 @@ type scanMsg struct {
 	totalScanned int
 }
 
+type scanProgressMsg struct {
+	processedCount int
+}
+
+type scanStartedMsg struct{}
+
+const scanBatchSize = 50 // Process and display keys in batches of 50
+
 func (m model) scanCmd() tea.Cmd {
+	// Use streaming scan in unlimited mode for better UX
+	if m.unlimited {
+		return m.scanStreamCmd()
+	}
+
+	// Standard scan for limited mode
 	return func() tea.Msg {
-		// Start scan and collect keys with Type and TTL only (lazy loading)
 		ctx := context.Background()
 
 		keyMessages := rv.GetKeys(m.rdb, cast.ToUint64(m.offset*m.limit), m.searchValue, m.limit, m.unlimited)
@@ -70,26 +83,7 @@ func (m model) scanCmd() tea.Cmd {
 		}
 
 		// Apply fuzzy or strict filtering if fuzzy filter is set
-		var filteredKeys []string
-		if m.fuzzyFilter != "" {
-			if m.fuzzyStrict {
-				// Strict mode: case-insensitive substring matching
-				filterLower := strings.ToLower(m.fuzzyFilter)
-				for _, key := range allKeys {
-					if strings.Contains(strings.ToLower(key), filterLower) {
-						filteredKeys = append(filteredKeys, key)
-					}
-				}
-			} else {
-				// Fuzzy mode: fuzzy matching
-				matches := fuzzy.Find(m.fuzzyFilter, allKeys)
-				for _, match := range matches {
-					filteredKeys = append(filteredKeys, match.Str)
-				}
-			}
-		} else {
-			filteredKeys = allKeys
-		}
+		filteredKeys := m.applyFilter(allKeys)
 
 		// Build complete items list from filtered keys (values not loaded yet)
 		var items []list.Item
@@ -114,6 +108,73 @@ func (m model) scanCmd() tea.Cmd {
 	}
 }
 
+// scanStreamCmd is optimized for unlimited mode - skips TYPE/TTL fetching during initial scan
+// TYPE and TTL data will be fetched lazily when items are selected
+func (m model) scanStreamCmd() tea.Cmd {
+	return func() tea.Msg {
+		keyMessages := rv.GetKeys(m.rdb, cast.ToUint64(m.offset*m.limit), m.searchValue, m.limit, m.unlimited)
+
+		// Quickly collect all key names (no TYPE/TTL - much faster!)
+		var allKeys []string
+		var processedCount int
+
+		for keyMessage := range keyMessages {
+			if keyMessage.Err != nil {
+				return errMsg{err: keyMessage.Err}
+			}
+
+			processedCount++
+			allKeys = append(allKeys, keyMessage.Key)
+		}
+
+		// Apply filtering
+		filteredKeys := m.applyFilter(allKeys)
+
+		// Create items WITHOUT fetching TYPE/TTL - this makes unlimited mode MUCH faster
+		var items []list.Item
+		for _, key := range filteredKeys {
+			items = append(items, item{
+				keyType:    "", // Will be fetched on demand
+				key:        key,
+				val:        "",
+				err:        false,
+				ttlSeconds: -1, // -1 means not yet fetched
+				loaded:     false,
+			})
+		}
+
+		// Return items immediately - TYPE/TTL will be fetched lazily when selected
+		return scanMsg{
+			items:        items,
+			isComplete:   true,
+			totalScanned: processedCount,
+		}
+	}
+}
+
+// applyFilter applies fuzzy or strict filtering to keys
+func (m model) applyFilter(allKeys []string) []string {
+	if m.fuzzyFilter == "" {
+		return allKeys
+	}
+
+	var filteredKeys []string
+	if m.fuzzyStrict {
+		filterLower := strings.ToLower(m.fuzzyFilter)
+		for _, key := range allKeys {
+			if strings.Contains(strings.ToLower(key), filterLower) {
+				filteredKeys = append(filteredKeys, key)
+			}
+		}
+	} else {
+		matches := fuzzy.Find(m.fuzzyFilter, allKeys)
+		for _, match := range matches {
+			filteredKeys = append(filteredKeys, match.Str)
+		}
+	}
+	return filteredKeys
+}
+
 type loadValueMsg struct {
 	key        string
 	keyType    string
@@ -129,6 +190,21 @@ func (m model) loadValueCmd(key string, keyType string, ttlSeconds int64) tea.Cm
 			val interface{}
 			err error
 		)
+
+		// Fetch TYPE if not already known (happens in unlimited mode)
+		if keyType == "" {
+			keyType = m.rdb.Type(ctx, key).Val()
+		}
+
+		// Fetch TTL if not already known (happens in unlimited mode)
+		if ttlSeconds == -1 {
+			ttl, ttlErr := m.rdb.TTL(ctx, key).Result()
+			if ttlErr == nil && ttl > 0 {
+				ttlSeconds = int64(ttl.Seconds())
+			} else {
+				ttlSeconds = 0 // No TTL or error
+			}
+		}
 
 		// Fetch the value based on key type
 		switch keyType {
