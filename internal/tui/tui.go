@@ -84,6 +84,9 @@ type model struct {
 	limit     int64 // scan size
 	unlimited bool  // disable 9999 key cap
 
+	pendingScanItems []list.Item // for incremental UI updates
+	pendingScanIndex int         // next index to send to UI
+
 	keyMap
 	state
 	focused focusedPane

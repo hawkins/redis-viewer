@@ -15,7 +15,8 @@ type item struct {
 	val        string
 	ttlSeconds int64
 
-	err bool
+	err    bool
+	loaded bool // indicates if value has been fetched from Redis
 }
 
 func (i item) Title() string { return i.key }
@@ -24,7 +25,10 @@ func (i item) Description() string {
 	if i.err {
 		return "get error: " + i.val
 	}
-	return fmt.Sprintf("%d: %d bytes", len(i.key), len(i.val))
+	if !i.loaded {
+		return fmt.Sprintf("%s (not loaded)", i.keyType)
+	}
+	return fmt.Sprintf("%s: %d bytes", i.keyType, len(i.val))
 }
 
 func (i item) FilterValue() string { return i.key }

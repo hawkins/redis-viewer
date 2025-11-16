@@ -27,17 +27,15 @@ type errMsg struct {
 }
 
 type scanMsg struct {
-	items []list.Item
+	items        []list.Item
+	isComplete   bool
+	totalScanned int
 }
 
 func (m model) scanCmd() tea.Cmd {
 	return func() tea.Msg {
+		// Start scan and collect keys with Type and TTL only (lazy loading)
 		ctx := context.Background()
-		var (
-			val   interface{}
-			err   error
-			items []list.Item
-		)
 
 		keyMessages := rv.GetKeys(m.rdb, cast.ToUint64(m.offset*m.limit), m.searchValue, m.limit, m.unlimited)
 
@@ -45,59 +43,30 @@ func (m model) scanCmd() tea.Cmd {
 		var allKeys []string
 		keyDataMap := make(map[string]struct {
 			keyType    string
-			val        string
-			err        bool
 			ttlSeconds int64
 		})
 
+		var processedCount int
 		for keyMessage := range keyMessages {
 			if keyMessage.Err != nil {
 				return errMsg{err: keyMessage.Err}
 			}
 
+			processedCount++
 			allKeys = append(allKeys, keyMessage.Key)
+
+			// LAZY LOADING: Only fetch Type and TTL, not the value
 			kt := m.rdb.Type(ctx, keyMessage.Key).Val()
 			ttl, ttlErr := m.rdb.TTL(ctx, keyMessage.Key).Result()
 			var ttlSecs int64
 			if ttlErr == nil && ttl > 0 {
 				ttlSecs = int64(ttl.Seconds())
 			}
-			switch kt {
-			case "string":
-				val, err = m.rdb.Get(ctx, keyMessage.Key).Result()
-			case "list":
-				val, err = m.rdb.LRange(ctx, keyMessage.Key, 0, -1).Result()
-			case "set":
-				val, err = m.rdb.SMembers(ctx, keyMessage.Key).Result()
-			case "zset":
-				val, err = m.rdb.ZRange(ctx, keyMessage.Key, 0, -1).Result()
-			case "hash":
-				val, err = m.rdb.HGetAll(ctx, keyMessage.Key).Result()
-			default:
-				val = ""
-				err = fmt.Errorf("unsupported type: %s", kt)
-			}
-
-			var itemValue string
-			var hasErr bool
-			if err != nil {
-				itemValue = err.Error()
-				hasErr = true
-			} else {
-				if kt == "string" {
-					itemValue = cast.ToString(val)
-				} else {
-					valBts, _ := util.JsonMarshalIndent(val)
-					itemValue = string(valBts)
-				}
-			}
 
 			keyDataMap[keyMessage.Key] = struct {
 				keyType    string
-				val        string
-				err        bool
 				ttlSeconds int64
-			}{keyType: kt, val: itemValue, err: hasErr, ttlSeconds: ttlSecs}
+			}{keyType: kt, ttlSeconds: ttlSecs}
 		}
 
 		// Apply fuzzy or strict filtering if fuzzy filter is set
@@ -122,19 +91,112 @@ func (m model) scanCmd() tea.Cmd {
 			filteredKeys = allKeys
 		}
 
-		// Build items list from filtered keys
+		// Build complete items list from filtered keys (values not loaded yet)
+		var items []list.Item
 		for _, key := range filteredKeys {
 			data := keyDataMap[key]
 			items = append(items, item{
 				keyType:    data.keyType,
 				key:        key,
-				val:        data.val,
-				err:        data.err,
+				val:        "", // Empty - will be loaded on demand
+				err:        false,
 				ttlSeconds: data.ttlSeconds,
+				loaded:     false, // Mark as not loaded
 			})
 		}
 
-		return scanMsg{items: items}
+		// Return all items with completion flag and total count
+		return scanMsg{
+			items:        items,
+			isComplete:   true,
+			totalScanned: processedCount,
+		}
+	}
+}
+
+type loadValueMsg struct {
+	key        string
+	keyType    string
+	val        string
+	err        error
+	ttlSeconds int64
+}
+
+func (m model) loadValueCmd(key string, keyType string, ttlSeconds int64) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		var (
+			val interface{}
+			err error
+		)
+
+		// Fetch the value based on key type
+		switch keyType {
+		case "string":
+			val, err = m.rdb.Get(ctx, key).Result()
+		case "list":
+			val, err = m.rdb.LRange(ctx, key, 0, -1).Result()
+		case "set":
+			val, err = m.rdb.SMembers(ctx, key).Result()
+		case "zset":
+			val, err = m.rdb.ZRange(ctx, key, 0, -1).Result()
+		case "hash":
+			val, err = m.rdb.HGetAll(ctx, key).Result()
+		default:
+			val = ""
+			err = fmt.Errorf("unsupported type: %s", keyType)
+		}
+
+		var itemValue string
+		if err != nil {
+			itemValue = err.Error()
+		} else {
+			if keyType == "string" {
+				itemValue = cast.ToString(val)
+			} else {
+				valBts, _ := util.JsonMarshalIndent(val)
+				itemValue = string(valBts)
+			}
+		}
+
+		return loadValueMsg{
+			key:        key,
+			keyType:    keyType,
+			val:        itemValue,
+			err:        err,
+			ttlSeconds: ttlSeconds,
+		}
+	}
+}
+
+type scanBatchMsg struct {
+	batch      []list.Item
+	isComplete bool
+}
+
+func (m model) displayBatchCmd() tea.Cmd {
+	return func() tea.Msg {
+		const batchSize = 50
+
+		if m.pendingScanIndex >= len(m.pendingScanItems) {
+			// No more items to display
+			return scanBatchMsg{batch: nil, isComplete: true}
+		}
+
+		// Calculate batch range
+		start := m.pendingScanIndex
+		end := start + batchSize
+		if end > len(m.pendingScanItems) {
+			end = len(m.pendingScanItems)
+		}
+
+		batch := m.pendingScanItems[start:end]
+		isComplete := end >= len(m.pendingScanItems)
+
+		return scanBatchMsg{
+			batch:      batch,
+			isComplete: isComplete,
+		}
 	}
 }
 

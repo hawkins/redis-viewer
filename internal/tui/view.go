@@ -55,12 +55,20 @@ func (m model) viewportContent() string {
 		key := fmt.Sprintf("%s", wrappedKey)
 		divider := dividerStyle.Render(strings.Repeat("-", width))
 
-		formattedValue := util.TryPrettyJSON(it.(item).val)
-		// Apply word wrapping if enabled
-		if m.wordWrap {
-			formattedValue = wordwrap.String(formattedValue, width)
+		var value string
+		if !it.(item).loaded {
+			// Value not loaded yet - show loading message
+			value = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#888888")).
+				Render("Loading value...")
+		} else {
+			formattedValue := util.TryPrettyJSON(it.(item).val)
+			// Apply word wrapping if enabled
+			if m.wordWrap {
+				formattedValue = wordwrap.String(formattedValue, width)
+			}
+			value = fmt.Sprintf("%s", formattedValue)
 		}
-		value := fmt.Sprintf("%s", formattedValue)
 
 		content := []string{keyType}
 		if it.(item).ttlSeconds > 0 {

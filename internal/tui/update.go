@@ -161,11 +161,62 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		m.now = msg.t
 		cmds = append(cmds, m.tickCmd())
+	case loadValueMsg:
+		// Value has been loaded for a key - update the item in the list
+		items := m.list.Items()
+		for i, listItem := range items {
+			if it, ok := listItem.(item); ok && it.key == msg.key {
+				// Update this item with the loaded value
+				items[i] = item{
+					keyType:    it.keyType,
+					key:        it.key,
+					val:        msg.val,
+					err:        msg.err != nil,
+					ttlSeconds: it.ttlSeconds,
+					loaded:     true,
+				}
+				m.list.SetItems(items)
+				// Update viewport to show the loaded value
+				m.viewport.SetContent(m.viewportContent())
+				break
+			}
+		}
 	case scanMsg:
-		m.list.SetItems(msg.items)
-		// Update viewport content to reflect the new/updated key values
+		// Scan completed - store items and begin incremental display
+		m.pendingScanItems = msg.items
+		m.pendingScanIndex = 0
+		m.list.SetItems(nil) // Clear existing items
 		m.viewport.GotoTop()
-		m.viewport.SetContent(m.viewportContent())
+		m.viewport.SetContent("")
+		// Start displaying items in batches
+		cmds = append(cmds, m.displayBatchCmd())
+	case scanBatchMsg:
+		// Append this batch to the list
+		currentItems := m.list.Items()
+		m.list.SetItems(append(currentItems, msg.batch...))
+		m.pendingScanIndex += len(msg.batch)
+
+		// Update viewport and trigger lazy loading for first item
+		if len(currentItems) == 0 && len(msg.batch) > 0 {
+			m.viewport.GotoTop()
+			m.viewport.SetContent(m.viewportContent())
+
+			// Load the first item's value automatically
+			if selectedItem := m.list.SelectedItem(); selectedItem != nil {
+				if it, ok := selectedItem.(item); ok && !it.loaded {
+					cmds = append(cmds, m.loadValueCmd(it.key, it.keyType, it.ttlSeconds))
+				}
+			}
+		}
+
+		if !msg.isComplete {
+			// More batches to display
+			cmds = append(cmds, m.displayBatchCmd())
+		} else {
+			// All batches displayed - clean up
+			m.pendingScanItems = nil
+			m.pendingScanIndex = 0
+		}
 	case countMsg:
 		if msg.count > constant.MaxScanCount {
 			m.statusMessage = fmt.Sprintf("DB %d: %d+ keys found", m.db, constant.MaxScanCount)
@@ -317,6 +368,15 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 				// Navigate the list
 				m.list, cmd = m.list.Update(msg)
 				cmds = append(cmds, cmd)
+
+				// Check if selected item needs value loaded
+				if selectedItem := m.list.SelectedItem(); selectedItem != nil {
+					if it, ok := selectedItem.(item); ok && !it.loaded {
+						// Trigger lazy loading of the value
+						cmds = append(cmds, m.loadValueCmd(it.key, it.keyType, it.ttlSeconds))
+					}
+				}
+
 				m.viewport.GotoTop()
 				m.viewport.SetContent(m.viewportContent())
 			} else {
