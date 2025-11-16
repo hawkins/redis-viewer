@@ -28,9 +28,9 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/hawkins/redis-viewer/internal/conf"
+	"github.com/hawkins/redis-viewer/internal/config"
 	"github.com/hawkins/redis-viewer/internal/constant"
-	"github.com/hawkins/redis-viewer/internal/tui"
+	"github.com/hawkins/redis-viewer/internal/ui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -43,14 +43,14 @@ var rootCmd = &cobra.Command{
 	Short: "view redis data in terminal.",
 	Long:  `Redis Viewer is a tool to view redis data in terminal.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		config := conf.Get()
+		cfg := config.Get()
 
-		model, err := tui.New(config)
+		app, err := ui.New(cfg)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
+		p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
 		if err := p.Start(); err != nil {
 			log.Fatal("start failed: ", err)
 		}
