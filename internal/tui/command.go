@@ -7,6 +7,8 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -295,4 +297,146 @@ func (m model) statsCmd() tea.Cmd {
 			err:         nil,
 		}
 	}
+}
+
+type editKeyMsg struct {
+	key     string
+	tmpFile string
+	err     error
+}
+
+type editKeyResultMsg struct {
+	key string
+	err error
+}
+
+func (m model) editKeyCmd(key string, currentValue string) tea.Cmd {
+	return func() tea.Msg {
+		// Create a temporary file
+		tmpFile, err := os.CreateTemp("", fmt.Sprintf("redis-viewer-%s-*.txt", sanitizeFilename(key)))
+		if err != nil {
+			return editKeyMsg{key: key, err: fmt.Errorf("failed to create temp file: %w", err)}
+		}
+
+		// Write current value to temp file
+		if _, err := tmpFile.WriteString(currentValue); err != nil {
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
+			return editKeyMsg{key: key, err: fmt.Errorf("failed to write to temp file: %w", err)}
+		}
+		_ = tmpFile.Close()
+
+		// Return message with temp file path to trigger editor
+		return editKeyMsg{key: key, tmpFile: tmpFile.Name(), err: nil}
+	}
+}
+
+func (m model) openEditorCmd(tmpFilePath string) tea.Cmd {
+	// Get editor from environment or use default
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vi" // fallback to vi
+	}
+
+	c := exec.Command(editor, tmpFilePath)
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return editorFinishedMsg{tmpFile: tmpFilePath, err: err}
+	})
+}
+
+type editorFinishedMsg struct {
+	tmpFile string
+	err     error
+}
+
+func (m model) processEditedKeyCmd(key string, tmpFilePath string) tea.Cmd {
+	return func() tea.Msg {
+		defer func() {
+			_ = os.Remove(tmpFilePath)
+		}()
+
+		// Read the modified content
+		content, err := os.ReadFile(tmpFilePath)
+		if err != nil {
+			return editKeyResultMsg{key: key, err: fmt.Errorf("failed to read temp file: %w", err)}
+		}
+
+		// Update Redis key
+		if err := rv.SetKey(m.rdb, key, string(content)); err != nil {
+			return editKeyResultMsg{key: key, err: fmt.Errorf("failed to update key: %w", err)}
+		}
+
+		return editKeyResultMsg{key: key, err: nil}
+	}
+}
+
+type createKeyMsg struct {
+	key     string
+	tmpFile string
+	err     error
+}
+
+type createKeyResultMsg struct {
+	key string
+	err error
+}
+
+func (m model) createKeyCmd(keyName string) tea.Cmd {
+	return func() tea.Msg {
+		// Create a temporary file
+		tmpFile, err := os.CreateTemp("", fmt.Sprintf("redis-viewer-new-%s-*.txt", sanitizeFilename(keyName)))
+		if err != nil {
+			return createKeyMsg{key: keyName, err: fmt.Errorf("failed to create temp file: %w", err)}
+		}
+
+		_ = tmpFile.Close()
+
+		// Return message with temp file path to trigger editor
+		return createKeyMsg{key: keyName, tmpFile: tmpFile.Name(), err: nil}
+	}
+}
+
+func (m model) processCreatedKeyCmd(key string, tmpFilePath string) tea.Cmd {
+	return func() tea.Msg {
+		defer func() {
+			_ = os.Remove(tmpFilePath)
+		}()
+
+		// Read the content
+		content, err := os.ReadFile(tmpFilePath)
+		if err != nil {
+			return createKeyResultMsg{key: key, err: fmt.Errorf("failed to read temp file: %w", err)}
+		}
+
+		// Create Redis key
+		if err := rv.SetKey(m.rdb, key, string(content)); err != nil {
+			return createKeyResultMsg{key: key, err: fmt.Errorf("failed to create key: %w", err)}
+		}
+
+		return createKeyResultMsg{key: key, err: nil}
+	}
+}
+
+// sanitizeFilename removes characters that might be problematic in filenames
+func sanitizeFilename(s string) string {
+	// Replace problematic characters with underscores
+	replacer := strings.NewReplacer(
+		"/", "_",
+		"\\", "_",
+		":", "_",
+		"*", "_",
+		"?", "_",
+		"\"", "_",
+		"<", "_",
+		">", "_",
+		"|", "_",
+	)
+	result := replacer.Replace(s)
+
+	// Limit length to avoid filesystem issues
+	if len(result) > 50 {
+		result = result[:50]
+	}
+
+	return result
 }

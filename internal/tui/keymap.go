@@ -17,6 +17,8 @@ type keyMap struct {
 	toggleWrap  key.Binding
 	help        key.Binding
 	stats       key.Binding
+	edit        key.Binding
+	create      key.Binding
 }
 
 // defaultKeyMap returns a set of default keybindings.
@@ -48,6 +50,12 @@ func defaultKeyMap() keyMap {
 		),
 		stats: key.NewBinding(
 			key.WithKeys("i"),
+		),
+		edit: key.NewBinding(
+			key.WithKeys("e"),
+		),
+		create: key.NewBinding(
+			key.WithKeys("n"),
 		),
 	}
 }

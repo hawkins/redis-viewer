@@ -5,6 +5,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/saltfishpr/redis-viewer/internal/constant"
@@ -36,6 +37,67 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				loading:     false,
 				err:         nil,
 			}
+		}
+	case editKeyMsg:
+		if msg.err != nil {
+			m.state = defaultState
+			m.statusMessage = fmt.Sprintf("Failed to prepare edit: %v", msg.err)
+		} else {
+			// Store editing context
+			m.editingKey = msg.key
+			m.editingTmpFile = msg.tmpFile
+			m.editingIsCreate = false
+			// Open the editor - this will suspend the TUI
+			cmds = append(cmds, m.openEditorCmd(msg.tmpFile))
+		}
+	case createKeyMsg:
+		if msg.err != nil {
+			m.state = defaultState
+			m.statusMessage = fmt.Sprintf("Failed to prepare create: %v", msg.err)
+		} else {
+			// Store editing context
+			m.editingKey = msg.key
+			m.editingTmpFile = msg.tmpFile
+			m.editingIsCreate = true
+			// Open the editor - this will suspend the TUI
+			cmds = append(cmds, m.openEditorCmd(msg.tmpFile))
+		}
+	case editorFinishedMsg:
+		if msg.err != nil {
+			m.state = defaultState
+			m.statusMessage = fmt.Sprintf("Editor failed: %v", msg.err)
+			_ = os.Remove(msg.tmpFile)
+			// Clear editing context
+			m.editingKey = ""
+			m.editingTmpFile = ""
+		} else {
+			// Editor closed successfully - process the result
+			if m.editingIsCreate {
+				cmds = append(cmds, m.processCreatedKeyCmd(m.editingKey, m.editingTmpFile))
+			} else {
+				cmds = append(cmds, m.processEditedKeyCmd(m.editingKey, m.editingTmpFile))
+			}
+			// Clear editing context
+			m.editingKey = ""
+			m.editingTmpFile = ""
+		}
+	case editKeyResultMsg:
+		m.state = defaultState
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Failed to update key: %v", msg.err)
+		} else {
+			m.statusMessage = fmt.Sprintf("Key '%s' updated successfully", msg.key)
+			m.ready = false
+			cmds = append(cmds, m.scanCmd(), m.countCmd())
+		}
+	case createKeyResultMsg:
+		m.state = defaultState
+		if msg.err != nil {
+			m.statusMessage = fmt.Sprintf("Failed to create key: %v", msg.err)
+		} else {
+			m.statusMessage = fmt.Sprintf("Key '%s' created successfully", msg.key)
+			m.ready = false
+			cmds = append(cmds, m.scanCmd(), m.countCmd())
 		}
 	case deleteMsg:
 		if msg.err != nil {
@@ -115,6 +177,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.handleHelpState(msg))
 	case statsState:
 		cmds = append(cmds, m.handleStatsState(msg))
+	case createKeyInputState:
+		cmds = append(cmds, m.handleCreateKeyInputState(msg))
+	case editingKeyState:
+		cmds = append(cmds, m.handleEditingKeyState(msg))
 	}
 
 	m.spinner, cmd = m.spinner.Update(msg)
@@ -180,6 +246,20 @@ func (m *model) handleDefaultState(msg tea.Msg) tea.Cmd {
 				m.state = statsState
 				m.statsData = &statsData{loading: true}
 				cmds = append(cmds, m.statsCmd())
+			case key.Matches(msg, m.keyMap.edit):
+				// Edit selected key
+				if selectedItem := m.list.SelectedItem(); selectedItem != nil {
+					if i, ok := selectedItem.(item); ok {
+						m.state = editingKeyState
+						m.statusMessage = fmt.Sprintf("Opening editor for key '%s'...", i.key)
+						cmds = append(cmds, m.editKeyCmd(i.key, i.val))
+					}
+				}
+			case key.Matches(msg, m.keyMap.create):
+				// Create new key
+				m.state = createKeyInputState
+				m.createKeyInput.Focus()
+				return textinput.Blink
 			}
 		case tea.KeyCtrlC:
 			cmd = tea.Quit
@@ -418,4 +498,49 @@ func (m *model) handleStatsState(msg tea.Msg) tea.Cmd {
 	}
 
 	return tea.Batch(cmds...)
+}
+
+func (m *model) handleCreateKeyInputState(msg tea.Msg) tea.Cmd {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEscape:
+			m.createKeyInput.Blur()
+			m.createKeyInput.Reset()
+			m.state = defaultState
+			return tea.Batch(cmds...)
+		case tea.KeyEnter:
+			keyName := m.createKeyInput.Value()
+
+			m.createKeyInput.Blur()
+			m.createKeyInput.Reset()
+
+			if keyName == "" {
+				m.statusMessage = "Key name cannot be empty"
+				m.state = defaultState
+				return tea.Batch(cmds...)
+			}
+
+			m.state = editingKeyState
+			m.statusMessage = fmt.Sprintf("Opening editor to create key '%s'...", keyName)
+			cmds = append(cmds, m.createKeyCmd(keyName))
+			return tea.Batch(cmds...)
+		}
+	}
+
+	m.createKeyInput, cmd = m.createKeyInput.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return tea.Batch(cmds...)
+}
+
+func (m *model) handleEditingKeyState(msg tea.Msg) tea.Cmd {
+	// This state is non-interactive - we're waiting for the editor command to complete
+	// The command will send either editKeyMsg or createKeyMsg when done
+	return nil
 }

@@ -31,6 +31,8 @@ const (
 	confirmPurgeState
 	helpState
 	statsState
+	createKeyInputState
+	editingKeyState
 )
 
 type focusedPane int
@@ -51,25 +53,29 @@ type statsData struct {
 type model struct {
 	width, height int
 
-	list          list.Model
-	textinput     textinput.Model
-	fuzzyInput    textinput.Model
-	dbInput       textinput.Model
-	viewport      viewport.Model
-	spinner       spinner.Model
+	list           list.Model
+	textinput      textinput.Model
+	fuzzyInput     textinput.Model
+	dbInput        textinput.Model
+	createKeyInput textinput.Model
+	viewport       viewport.Model
+	spinner        spinner.Model
 
 	rdb           redis.UniversalClient
 	redisOpts     *redis.UniversalOptions
 	db            int
-	searchValue   string
-	fuzzyFilter   string
-	fuzzyStrict   bool
-	wordWrap      bool
-	statusMessage string
-	ready         bool
-	now           string
-	keyToDelete   string
-	statsData     *statsData
+	searchValue      string
+	fuzzyFilter      string
+	fuzzyStrict      bool
+	wordWrap         bool
+	statusMessage    string
+	ready            bool
+	now              string
+	keyToDelete      string
+	statsData        *statsData
+	editingKey       string
+	editingTmpFile   string
+	editingIsCreate  bool
 
 	offset int64
 	limit  int64 // scan size
@@ -113,6 +119,11 @@ func New(config conf.Config) (*model, error) {
 	d.PlaceholderStyle = lipgloss.NewStyle()
 	d.CharLimit = 4
 
+	c := textinput.New()
+	c.Prompt = "> "
+	c.Placeholder = "Key Name"
+	c.PlaceholderStyle = lipgloss.NewStyle()
+
 	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
 	l.Title = "Redis Viewer"
 	l.SetShowHelp(false)
@@ -124,11 +135,12 @@ func New(config conf.Config) (*model, error) {
 	s.Spinner = spinner.Dot
 
 	return &model{
-		list:       l,
-		textinput:  t,
-		fuzzyInput: f,
-		dbInput:    d,
-		spinner:    s,
+		list:           l,
+		textinput:      t,
+		fuzzyInput:     f,
+		dbInput:        d,
+		createKeyInput: c,
+		spinner:        s,
 
 		rdb:       rdb,
 		redisOpts: opts,

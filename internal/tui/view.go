@@ -108,6 +108,8 @@ func (m model) helpView() string {
 		"  d         Switch database",
 		"  w         Toggle word wrap",
 		"  i         View server statistics",
+		"  e         Edit selected key in $EDITOR",
+		"  n         Create new key in $EDITOR",
 		"  x         Delete selected key",
 		"  P         Purge database (delete all keys)",
 		"  ?         Toggle this help",
@@ -158,6 +160,12 @@ func (m model) statusView() string {
 	case switchDBState:
 		status = "Switch DB"
 		statusDesc = m.dbInput.View()
+	case createKeyInputState:
+		status = "Create"
+		statusDesc = m.createKeyInput.View()
+	case editingKeyState:
+		status = "Editor"
+		statusDesc = m.statusMessage
 	case confirmDeleteState:
 		status = "Confirm"
 		statusKey = statusStyle.Render(status)

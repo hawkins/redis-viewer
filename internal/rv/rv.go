@@ -118,6 +118,11 @@ func DeleteKey(rdb redis.UniversalClient, key string) error {
 	return rdb.Del(ctx, key).Err()
 }
 
+func SetKey(rdb redis.UniversalClient, key string, value string) error {
+	ctx := context.TODO()
+	return rdb.Set(ctx, key, value, 0).Err()
+}
+
 func FlushDB(rdb redis.UniversalClient) error {
 	ctx := context.TODO()
 
